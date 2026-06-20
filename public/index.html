@@ -1,0 +1,113 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>The Cloud Corner ☁️</title>
+  <link rel="icon" type="image/svg+xml" href="assets/favicon.svg" />
+  <link rel="preconnect" href="https://fonts.googleapis.com" />
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+  <link href="https://fonts.googleapis.com/css2?family=Quicksand:wght@400;500;600;700&family=Fredoka:wght@500;600;700&display=swap" rel="stylesheet" />
+  <link rel="stylesheet" href="css/styles.css" />
+</head>
+<body class="planner-body">
+  <!-- ===== Top bar ===== -->
+  <header class="topbar">
+    <div class="topbar-left">
+      <span class="topbar-logo">☁️ The Cloud Corner</span>
+    </div>
+    <div class="topbar-right">
+      <span id="user-chip" class="user-chip" hidden></span>
+      <button id="signout-btn" class="ghost-btn" hidden>Sign out</button>
+    </div>
+  </header>
+
+  <!-- ===== Loading veil (shown until auth resolves) ===== -->
+  <div id="loading-veil" class="loading-veil">
+    <div class="cloud-spinner">☁️</div>
+    <p>Floating in…</p>
+  </div>
+
+  <main id="app" class="app" hidden>
+    <!-- ===== Banner ===== -->
+    <section class="banner">
+      <!-- Decorative SVG clouds + sparkles (always present) -->
+      <svg class="banner-cloud cloud-a" viewBox="0 0 200 90" aria-hidden="true"><use href="assets/decor.svg#cloud" /></svg>
+      <svg class="banner-cloud cloud-b" viewBox="0 0 200 90" aria-hidden="true"><use href="assets/decor.svg#cloud" /></svg>
+      <svg class="sparkle sparkle-1" viewBox="0 0 40 40" aria-hidden="true"><use href="assets/decor.svg#sparkle" /></svg>
+      <svg class="sparkle sparkle-2" viewBox="0 0 40 40" aria-hidden="true"><use href="assets/decor.svg#sparkle" /></svg>
+      <!--
+        CINNAMOROLL ART SLOT (banner):
+        Drop your Cinnamoroll banner image at public/assets/cinnamoroll-banner.png
+        then remove the `hidden` attribute below. See README.
+      -->
+      <img class="banner-art" src="assets/cinnamoroll-banner.png" alt="Cinnamoroll" hidden
+           onerror="this.hidden = true" />
+    </section>
+
+    <!-- ===== Title ===== -->
+    <h1 class="page-title">Your New Homepage</h1>
+
+    <!-- ===== Quote callout ===== -->
+    <div class="callout callout-quote">
+      <span class="callout-icon">☁️</span>
+      <em>Let's fly like fluffy clouds</em>
+    </div>
+
+    <!-- ===== Top row: welcome + date + page links ===== -->
+    <div class="top-grid">
+      <!-- Welcome + mascot -->
+      <div class="welcome-col">
+        <div class="callout callout-welcome">
+          <span class="callout-icon">☁️</span>
+          <span>Welcome home, <strong id="welcome-name">friend</strong>!</span>
+        </div>
+        <div class="mascot">
+          <!--
+            CINNAMOROLL ART SLOT (mascot):
+            Drop your image at public/assets/cinnamoroll-sit.png to replace the cloud.
+          -->
+          <img src="assets/cinnamoroll-sit.png" alt="" class="mascot-img"
+               onerror="this.replaceWith(Object.assign(document.createElement('div'),{className:'mascot-cloud',textContent:'☁️'}))" />
+        </div>
+      </div>
+
+      <!-- Flip-clock date card -->
+      <div class="date-card">
+        <div class="flip-tile">
+          <span id="date-month" class="flip-num">00</span>
+        </div>
+        <div class="flip-tile">
+          <span id="date-day" class="flip-num">00</span>
+          <span id="date-weekday" class="flip-weekday">DAY</span>
+        </div>
+      </div>
+
+      <!-- Page link rails -->
+      <aside class="rail">
+        <div class="rail-head callout-quote">
+          <span class="callout-icon">☁️</span> Main pages
+        </div>
+        <ul id="pages-main" class="link-list"></ul>
+
+        <div class="rail-head callout-quote">
+          <span class="callout-icon">☁️</span> Just for fun
+        </div>
+        <ul id="pages-fun" class="link-list"></ul>
+      </aside>
+    </div>
+
+    <div class="cloud-divider" aria-hidden="true"></div>
+
+    <!-- ===== Weekly to-do grid ===== -->
+    <section class="week-grid" id="week-grid">
+      <!-- day columns injected by planner.js -->
+    </section>
+
+    <div class="cloud-divider" aria-hidden="true"></div>
+  </main>
+
+  <!-- Firebase + app logic (modular ESM) -->
+  <script type="module" src="js/planner.js"></script>
+</body>
+</html>

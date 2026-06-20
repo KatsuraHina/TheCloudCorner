@@ -1,0 +1,16 @@
+<svg xmlns="http://www.w3.org/2000/svg" style="display:none">
+  <!-- Reusable symbols referenced via <use href="decor.svg#id"> -->
+  <symbol id="cloud" viewBox="0 0 200 90">
+    <path fill="currentColor"
+      d="M50 80c-19 0-34-13-34-30 0-15 12-27 28-29 5-12 18-21 33-21 17 0 31 11 35 26 14 1 25 11 25 24 0 16-15 30-34 30H50z"/>
+    <circle cx="70" cy="55" r="3" fill="#9fc9e6"/>
+    <circle cx="98" cy="55" r="3" fill="#9fc9e6"/>
+    <path d="M78 64c4 4 12 4 16 0" stroke="#9fc9e6" stroke-width="2.5" fill="none" stroke-linecap="round"/>
+    <ellipse cx="63" cy="62" rx="6" ry="4" fill="#f7c6d2" opacity="0.7"/>
+    <ellipse cx="105" cy="62" rx="6" ry="4" fill="#f7c6d2" opacity="0.7"/>
+  </symbol>
+  <symbol id="sparkle" viewBox="0 0 40 40">
+    <path fill="currentColor"
+      d="M20 2c2 9 7 14 16 16-9 2-14 7-16 16-2-9-7-14-16-16 9-2 14-7 16-16z"/>
+  </symbol>
+</svg>
