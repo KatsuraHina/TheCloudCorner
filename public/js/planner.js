@@ -1,5 +1,5 @@
 // ─────────────────────────────────────────────────────────────────────────────
-//  planner.js — the homepage: auth gate, weekly to-dos (Firestore), page links
+//  planner.js — the homepage: auth gate + weekly to-dos (Firestore)
 //
 //  The layout renders immediately with NO network dependency. The Firebase SDK
 //  is loaded lazily (dynamic import) only when real config keys are present, so
@@ -26,7 +26,6 @@ const $ = (id) => document.getElementById(id);
 let fb = null;          // { auth, db, ...firestore fns, ...auth fns }
 let currentUid = null;
 let unsubTasks = null;
-let unsubPages = null;
 
 // ── Render the shell right away (works with or without Firebase) ─────────────
 revealApp();
@@ -35,7 +34,6 @@ startClock();
 $("welcome-name").textContent = "friend";
 
 if (!isConfigured) {
-  renderPreviewPages();
   banner("Preview mode — add your Firebase keys in js/firebase-config.js to enable sign-in and saving. See the README.");
 } else {
   initFirebase().catch((err) => {
@@ -75,7 +73,6 @@ function bootForUser(user) {
   signoutBtn.onclick = () => fb.signOut(fb.auth);
 
   listenToTasks(user.uid);
-  listenToPages(user.uid);
 }
 
 // ── Reveal main, hide loader ─────────────────────────────────────────────────
@@ -176,62 +173,4 @@ function addTask(day, text) {
   return addDoc(collection(db, "users", currentUid, "tasks"), {
     text, done: false, day, createdAt: serverTimestamp(),
   });
-}
-
-// Static page links shown in preview mode (no Firebase) so the rails aren't empty.
-function renderPreviewPages() {
-  const sample = [
-    { title: "University",    emoji: "🎓", section: "main" },
-    { title: "Habit tracker", emoji: "🌱", section: "main" },
-    { title: "Bookish",       emoji: "📚", section: "fun" },
-  ];
-  for (const p of sample) {
-    const li = document.createElement("li");
-    li.className = "link-item";
-    li.innerHTML = `<span class="link-emoji">${p.emoji}</span><span>${p.title}</span>`;
-    $(p.section === "fun" ? "pages-fun" : "pages-main").appendChild(li);
-  }
-}
-
-// ── Page link rails ──────────────────────────────────────────────────────────
-function listenToPages(uid) {
-  if (unsubPages) unsubPages();
-  const { db, collection, onSnapshot } = fb;
-  const col = collection(db, "users", uid, "pages");
-  unsubPages = onSnapshot(col, async (snap) => {
-    if (snap.empty) {
-      await seedDefaultPages(uid);
-      return; // snapshot fires again with the seeded docs
-    }
-    const main = $("pages-main");
-    const fun = $("pages-fun");
-    main.innerHTML = "";
-    fun.innerHTML = "";
-    snap.forEach((d) => {
-      const p = d.data();
-      const li = document.createElement("li");
-      li.className = "link-item";
-      li.innerHTML = `<span class="link-emoji">${p.emoji || "📄"}</span>` +
-        (p.url
-          ? `<a href="${p.url}" target="_blank" rel="noopener">${p.title}</a>`
-          : `<span>${p.title}</span>`);
-      (p.section === "fun" ? fun : main).appendChild(li);
-    });
-  });
-}
-
-async function seedDefaultPages(uid) {
-  const { db, collection, addDoc, getDocs, serverTimestamp } = fb;
-  const defaults = [
-    { title: "University",    emoji: "🎓", section: "main" },
-    { title: "Habit tracker", emoji: "🌱", section: "main" },
-    { title: "Bookish",       emoji: "📚", section: "fun" },
-  ];
-  const existing = await getDocs(collection(db, "users", uid, "pages"));
-  if (!existing.empty) return; // avoid double-seeding on a snapshot race
-  for (const p of defaults) {
-    await addDoc(collection(db, "users", uid, "pages"), {
-      ...p, url: "", createdAt: serverTimestamp(),
-    });
-  }
 }
