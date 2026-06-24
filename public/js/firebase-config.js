@@ -13,12 +13,13 @@
 // ─────────────────────────────────────────────────────────────────────────────
 
 export const firebaseConfig = {
-  apiKey: "REPLACE_ME",
-  authDomain: "REPLACE_ME.firebaseapp.com",
-  projectId: "REPLACE_ME",
-  storageBucket: "REPLACE_ME.appspot.com",
-  messagingSenderId: "REPLACE_ME",
-  appId: "REPLACE_ME",
+  apiKey: "AIzaSyCF2zYfohgia1MyinbdVmXTPa9RuSuWvlg",
+  authDomain: "thecloudcorner-b9c9c.firebaseapp.com",
+  projectId: "thecloudcorner-b9c9c",
+  storageBucket: "thecloudcorner-b9c9c.firebasestorage.app",
+  messagingSenderId: "774870607136",
+  appId: "1:774870607136:web:98031b91e6fe5c4dd02345",
+  measurementId: "G-K2E5H08PMV",
 };
 
 // Quick check so the app shows a friendly message instead of failing silently
