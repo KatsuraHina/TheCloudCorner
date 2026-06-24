@@ -1,0 +1,24 @@
+name: Deploy to Firebase Hosting
+
+# Auto-deploy whenever code is pushed to the working branch.
+on:
+  push:
+    branches:
+      - claude/firebase-planner-feasibility-duj0y6
+      - main
+  workflow_dispatch: {} # also allow manual "Run workflow" from the Actions tab
+
+jobs:
+  deploy:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Check out the repository
+        uses: actions/checkout@v4
+
+      - name: Deploy to Firebase Hosting (live channel)
+        uses: FirebaseExtended/action-hosting-deploy@v0
+        with:
+          repoToken: ${{ secrets.GITHUB_TOKEN }}
+          firebaseServiceAccount: ${{ secrets.FIREBASE_SERVICE_ACCOUNT }}
+          channelId: live
+          projectId: thecloudcorner-b9c9c
