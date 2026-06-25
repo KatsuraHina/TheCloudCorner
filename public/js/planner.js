@@ -26,10 +26,37 @@ const $ = (id) => document.getElementById(id);
 let fb = null;          // { auth, db, ...firestore fns, ...auth fns }
 let currentUid = null;
 let unsubTasks = null;
+let allTasks = [];                              // cached snapshot of every task
+let currentWeekStart = mondayKey(new Date());   // "YYYY-MM-DD" of the viewed week's Monday
+
+// ── Week date helpers ─────────────────────────────────────────────────────────
+// Monday is treated as the start of the week (matches the Mon–Sun columns).
+function mondayOf(date) {
+  const d = new Date(date.getFullYear(), date.getMonth(), date.getDate());
+  const offset = (d.getDay() + 6) % 7; // 0 if Monday, 6 if Sunday
+  d.setDate(d.getDate() - offset);
+  return d;
+}
+function mondayKey(date) {
+  const m = mondayOf(date);
+  const mm = String(m.getMonth() + 1).padStart(2, "0");
+  const dd = String(m.getDate()).padStart(2, "0");
+  return `${m.getFullYear()}-${mm}-${dd}`;
+}
+function keyToDate(key) {
+  const [y, m, d] = key.split("-").map(Number);
+  return new Date(y, m - 1, d);
+}
+function addDays(date, n) {
+  const d = new Date(date);
+  d.setDate(d.getDate() + n);
+  return d;
+}
 
 // ── Build the shell while it's still hidden behind the loader ────────────────
 buildSkeleton();
 startClock();
+renderWeekLabel();
 $("welcome-name").textContent = "friend";
 
 if (!isConfigured) {
@@ -77,7 +104,42 @@ function bootForUser(user) {
   signoutBtn.hidden = false;
   signoutBtn.onclick = () => fb.signOut(fb.auth);
 
+  setupWeekNav();
   listenToTasks(user.uid);
+}
+
+// ── Week navigation ──────────────────────────────────────────────────────────
+function setupWeekNav() {
+  $("week-prev").onclick = () => shiftWeek(-7);
+  $("week-next").onclick = () => shiftWeek(7);
+  $("week-label").onclick = () => {
+    currentWeekStart = mondayKey(new Date());
+    render();
+  };
+  renderWeekLabel();
+}
+
+function shiftWeek(days) {
+  currentWeekStart = mondayKey(addDays(keyToDate(currentWeekStart), days));
+  render();
+}
+
+function renderWeekLabel() {
+  const monday = keyToDate(currentWeekStart);
+  const sunday = addDays(monday, 6);
+  const thisWeek = mondayKey(new Date());
+  const fmt = (d) => d.toLocaleDateString(undefined, { month: "short", day: "numeric" });
+
+  // Friendly relative name for the current / next / last week.
+  const diffWeeks = Math.round((monday - keyToDate(thisWeek)) / (7 * 86400000));
+  let title = `Week of ${fmt(monday)}`;
+  if (diffWeeks === 0) title = "This week";
+  else if (diffWeeks === 1) title = "Next week";
+  else if (diffWeeks === -1) title = "Last week";
+
+  const label = $("week-label");
+  label.innerHTML = `${title}<span class="week-sub">${fmt(monday)} – ${fmt(sunday)}</span>`;
+  label.classList.toggle("is-current", diffWeeks === 0);
 }
 
 // ── Reveal main, hide loader ─────────────────────────────────────────────────
@@ -126,15 +188,48 @@ function buildSkeleton() {
 }
 
 // ── Live to-dos ──────────────────────────────────────────────────────────────
+// One listener caches every task; render() shows the right slice for the week
+// being viewed. Weekday tasks belong to a specific week (weekStart); the Master
+// list is shared across all weeks.
+const WEEKDAY_KEYS = ["monday", "tuesday", "wednesday", "thursday", "friday", "saturday", "sunday"];
+
 function listenToTasks(uid) {
   currentUid = uid;
   if (unsubTasks) unsubTasks();
-  const { db, collection, query, orderBy, onSnapshot } = fb;
-  const q = query(collection(db, "users", uid, "tasks"), orderBy("createdAt", "asc"));
-  unsubTasks = onSnapshot(q, (snap) => {
-    document.querySelectorAll(".todo-list").forEach((ul) => (ul.innerHTML = ""));
-    snap.forEach((d) => renderTask(d.id, d.data(), uid));
+  const { db, collection, onSnapshot } = fb;
+  unsubTasks = onSnapshot(collection(db, "users", uid, "tasks"), (snap) => {
+    allTasks = snap.docs.map((d) => ({ id: d.id, ...d.data() }));
+    migrateLegacyTasks(uid);
+    render();
   });
+}
+
+// Older tasks were saved before weeks existed (weekday set, no weekStart).
+// Park them in the real current week so they don't vanish from the grid.
+function migrateLegacyTasks(uid) {
+  const { db, doc, updateDoc } = fb;
+  const thisWeek = mondayKey(new Date());
+  for (const t of allTasks) {
+    if (WEEKDAY_KEYS.includes(t.day) && !t.weekStart) {
+      t.weekStart = thisWeek; // update cache immediately so render is correct now
+      updateDoc(doc(db, "users", uid, "tasks", t.id), { weekStart: thisWeek });
+    }
+  }
+}
+
+function render() {
+  renderWeekLabel();
+  document.querySelectorAll(".todo-list").forEach((ul) => (ul.innerHTML = ""));
+
+  const visible = allTasks
+    .filter((t) =>
+      t.day === "master"
+        ? true                                   // Master list: every week
+        : t.weekStart === currentWeekStart       // weekday: only the viewed week
+    )
+    .sort((a, b) => (a.createdAt?.seconds || 0) - (b.createdAt?.seconds || 0));
+
+  for (const t of visible) renderTask(t.id, t, currentUid);
 }
 
 function renderTask(id, data, uid) {
@@ -175,7 +270,9 @@ function renderTask(id, data, uid) {
 
 function addTask(day, text) {
   const { db, collection, addDoc, serverTimestamp } = fb;
+  // Weekday tasks belong to the week currently being viewed; Master is shared.
+  const weekStart = day === "master" ? null : currentWeekStart;
   return addDoc(collection(db, "users", currentUid, "tasks"), {
-    text, done: false, day, createdAt: serverTimestamp(),
+    text, done: false, day, weekStart, createdAt: serverTimestamp(),
   });
 }
