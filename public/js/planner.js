@@ -27,17 +27,21 @@ let fb = null;          // { auth, db, ...firestore fns, ...auth fns }
 let currentUid = null;
 let unsubTasks = null;
 
-// ── Render the shell right away (works with or without Firebase) ─────────────
-revealApp();
+// ── Build the shell while it's still hidden behind the loader ────────────────
 buildSkeleton();
 startClock();
 $("welcome-name").textContent = "friend";
 
 if (!isConfigured) {
+  // No auth to wait for in preview mode — show the layout straight away.
+  revealApp();
   banner("Preview mode — add your Firebase keys in js/firebase-config.js to enable sign-in and saving. See the README.");
 } else {
+  // Keep the loader up until auth resolves, so the page never flashes before
+  // a signed-out visitor is redirected to the login page.
   initFirebase().catch((err) => {
     console.error(err);
+    revealApp(); // don't trap the user on the loader if Firebase fails to load
     banner("Couldn't reach Firebase. Check your connection and config keys.");
   });
 }
@@ -62,6 +66,7 @@ async function initFirebase() {
 
 // ── Boot the planner for a signed-in user ────────────────────────────────────
 function bootForUser(user) {
+  revealApp(); // confirmed signed in — now it's safe to show the page
   const name = user.displayName || (user.email ? user.email.split("@")[0] : "friend");
   $("welcome-name").textContent = name;
 
