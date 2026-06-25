@@ -277,3 +277,13 @@ body {
   .week-grid { grid-template-columns: 1fr; }
   .flip-num { font-size: 2.6rem; }
 }
+
+/* On phones the desktop sticker positions pile onto the date card, so we keep a
+   tidy few in safe whitespace (a banner corner + either side of the mascot) and
+   hide the rest. pointer-events:none already means none block tapping to-dos. */
+@media (max-width: 640px) {
+  .deco-3, .deco-4, .deco-5 { display: none; }
+  .deco-1 { width: 66px; top: 352px; left: -8px;  right: auto; bottom: auto; }
+  .deco-2 { width: 52px; top: 42px;  right: 6px;   left: auto;  bottom: auto; }
+  .deco-6 { width: 72px; top: 344px; right: -10px; left: auto;  bottom: auto; }
+}
