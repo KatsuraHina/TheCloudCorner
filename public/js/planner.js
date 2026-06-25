@@ -7,6 +7,7 @@
 // ─────────────────────────────────────────────────────────────────────────────
 import { isConfigured } from "./firebase-config.js";
 import { startClock } from "./clock.js";
+import { getMovieQuote } from "./quotes.js";
 
 // Columns, in screenshot order (two rows of four).
 const DAYS = [
@@ -28,6 +29,8 @@ let currentUid = null;
 let unsubTasks = null;
 let allTasks = [];                              // cached snapshot of every task
 let currentWeekStart = mondayKey(new Date());   // "YYYY-MM-DD" of the viewed week's Monday
+const celebratedKeys = new Set();               // columns already shown as complete
+let lastRenderWeek = null;                       // for suppressing popups on load / week switch
 
 // ── Week date helpers ─────────────────────────────────────────────────────────
 // Monday is treated as the start of the week (matches the Mon–Sun columns).
@@ -57,6 +60,7 @@ function addDays(date, n) {
 buildSkeleton();
 startClock();
 renderWeekLabel();
+wireCelebrate();
 $("welcome-name").textContent = "friend";
 
 if (!isConfigured) {
@@ -230,6 +234,80 @@ function render() {
     .sort((a, b) => (a.createdAt?.seconds || 0) - (b.createdAt?.seconds || 0));
 
   for (const t of visible) renderTask(t.id, t, currentUid);
+
+  detectCompletions(visible);
+}
+
+// Show a celebration popup the moment every to-do in a column gets checked off.
+// Seeding suppresses popups on first load and when switching weeks, so only a
+// fresh user completion pops.
+function detectCompletions(visible) {
+  const seeding = lastRenderWeek !== currentWeekStart;
+
+  for (const day of DAYS) {
+    const items = visible.filter((t) => (t.day || "master") === day.key);
+    const complete = items.length > 0 && items.every((t) => t.done);
+    const keyId = day.key === "master" ? "master" : `${currentWeekStart}/${day.key}`;
+
+    if (complete) {
+      if (!celebratedKeys.has(keyId)) {
+        celebratedKeys.add(keyId);
+        if (!seeding) celebrate(day.label);
+      }
+    } else {
+      celebratedKeys.delete(keyId);
+    }
+  }
+
+  lastRenderWeek = currentWeekStart;
+}
+
+// ── Celebration popup ─────────────────────────────────────────────────────────
+let celebrateTimer = null;
+
+async function celebrate(dayLabel) {
+  const overlay = $("celebrate");
+  if (!overlay) return;
+
+  $("celebrate-title").textContent = `${dayLabel} complete!`;
+  $("celebrate-quote").textContent = "…";
+  $("celebrate-movie").textContent = "";
+  showCelebrate(overlay);
+
+  const { text, movie } = await getMovieQuote();
+  // Only fill in if the popup is still open (user may have dismissed it).
+  if (!overlay.hidden) {
+    $("celebrate-quote").textContent = `“${text}”`;
+    $("celebrate-movie").textContent = `— ${movie}`;
+  }
+}
+
+function showCelebrate(overlay) {
+  overlay.hidden = false;
+  // restart the pop-in animation
+  const card = overlay.querySelector(".celebrate-card");
+  card.classList.remove("pop");
+  void card.offsetWidth;
+  card.classList.add("pop");
+
+  clearTimeout(celebrateTimer);
+  celebrateTimer = setTimeout(hideCelebrate, 6000);
+}
+
+function hideCelebrate() {
+  const overlay = $("celebrate");
+  if (overlay) overlay.hidden = true;
+  clearTimeout(celebrateTimer);
+}
+
+function wireCelebrate() {
+  const overlay = $("celebrate");
+  if (!overlay) return;
+  $("celebrate-close").onclick = hideCelebrate;
+  // click on the backdrop (but not the card) closes it
+  overlay.addEventListener("click", (e) => {
+    if (e.target === overlay) hideCelebrate();
+  });
 }
 
 function renderTask(id, data, uid) {

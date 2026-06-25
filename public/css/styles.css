@@ -290,6 +290,62 @@ body {
 .auth-error { background: #ffe6ea; color: #c25a6c; border-radius: 10px; padding: 9px 12px; margin: 0; font-size: 0.9rem; }
 .login-foot { color: var(--ink-soft); margin-top: 16px; }
 
+/* ───────────────────────────────────────────────────────────────────────────
+   "Day complete" celebration popup
+   ─────────────────────────────────────────────────────────────────────────── */
+.celebrate {
+  position: fixed; inset: 0; z-index: 50;
+  display: grid; place-items: center; padding: 24px;
+  background: rgba(120, 170, 205, 0.28); backdrop-filter: blur(3px);
+  animation: fade-in 0.2s ease;
+}
+.celebrate-card {
+  position: relative; width: min(420px, 92vw); text-align: center;
+  background: var(--cloud); border-radius: 26px; padding: 30px 28px 28px;
+  box-shadow: 0 20px 50px rgba(120, 170, 205, 0.35);
+  border: 2px solid #eaf4fb;
+}
+.celebrate-card.pop { animation: pop-in 0.4s cubic-bezier(0.22, 1.2, 0.36, 1); }
+.celebrate-close {
+  position: absolute; top: 12px; right: 14px; border: none; background: transparent;
+  color: var(--ink-soft); font-size: 1.6rem; line-height: 1; cursor: pointer;
+}
+.celebrate-close:hover { color: var(--blue-ink); }
+.celebrate-emoji { font-size: 3rem; line-height: 1; }
+.celebrate-title {
+  font-family: var(--font-head); font-weight: 700; color: var(--blue-ink);
+  margin: 8px 0 14px; font-size: 1.5rem;
+}
+.celebrate-quote {
+  font-family: var(--font-body); font-size: 1.15rem; color: var(--ink);
+  line-height: 1.5; margin: 0 0 10px; font-style: italic;
+}
+.celebrate-movie {
+  font-family: var(--font-head); font-weight: 600; color: var(--blue-ink); margin: 0;
+}
+.sparkle {
+  position: absolute; font-size: 1.2rem; pointer-events: none;
+  animation: twinkle 1.6s ease-in-out infinite;
+}
+.sparkle.s-1 { top: -10px; left: 24px; }
+.sparkle.s-2 { top: 16px; right: -8px; animation-delay: 0.4s; font-size: 1.5rem; }
+.sparkle.s-3 { bottom: -8px; left: 40px; animation-delay: 0.8s; }
+
+@keyframes fade-in { from { opacity: 0; } to { opacity: 1; } }
+@keyframes pop-in {
+  0%   { transform: scale(0.7); opacity: 0; }
+  100% { transform: scale(1);   opacity: 1; }
+}
+@keyframes twinkle {
+  0%, 100% { transform: scale(0.8); opacity: 0.5; }
+  50%      { transform: scale(1.2); opacity: 1; }
+}
+
+@media (max-width: 520px) {
+  .celebrate-title { font-size: 1.3rem; }
+  .celebrate-quote { font-size: 1.05rem; }
+}
+
 /* ── Responsive ───────────────────────────────────────────────────────────── */
 @media (max-width: 880px) {
   .top-grid { grid-template-columns: 1fr; }
