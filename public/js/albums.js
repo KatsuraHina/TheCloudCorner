@@ -199,20 +199,6 @@ function renderMasonry() {
   $("gallery-empty").hidden = items.length > 0;
   if (!items.length) return;
 
-  // Pick a column count that fits the width but never exceeds the photo count,
-  // so a handful of photos stay centered instead of leaving an empty column.
-  const w = wrap.clientWidth || window.innerWidth || 900;
-  const maxCols = w < 540 ? 1 : w < 900 ? 2 : 3;
-  const cols = Math.max(1, Math.min(maxCols, items.length));
-
-  const columnEls = [];
-  for (let c = 0; c < cols; c++) {
-    const col = document.createElement("div");
-    col.className = "masonry-column";
-    wrap.appendChild(col);
-    columnEls.push(col);
-  }
-
   // You can curate an item if you uploaded it, or if you own the album.
   const canCurate = (item) =>
     item.ownerUid === currentUid || (currentAlbum && currentAlbum.ownerUid === currentUid);
@@ -263,8 +249,7 @@ function renderMasonry() {
     const delBtn = card.querySelector(".memory-del");
     if (delBtn) delBtn.addEventListener("click", () => deleteItem(item));
 
-    // Fill columns left-to-right in upload order.
-    columnEls[index % cols].appendChild(card);
+    wrap.appendChild(card);
   });
 }
 
@@ -515,14 +500,6 @@ function wireStaticUi() {
   ["dragleave", "drop"].forEach((ev) =>
     dz.addEventListener(ev, (e) => { e.preventDefault(); dz.classList.remove("is-over"); }));
   dz.addEventListener("drop", (e) => handleFiles(e.dataTransfer.files));
-
-  // Re-flow the masonry columns when the window width changes (in gallery view).
-  let resizeTimer;
-  window.addEventListener("resize", () => {
-    if ($("gallery-view").hidden) return;
-    clearTimeout(resizeTimer);
-    resizeTimer = setTimeout(renderMasonry, 150);
-  });
 
   // Lightbox controls.
   $("lightbox-close").onclick = () => closeLightbox();

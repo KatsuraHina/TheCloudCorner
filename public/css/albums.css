@@ -72,19 +72,17 @@
 .pill-danger { color: #c25a6c; }
 .pill-danger:hover { background: #ffe6ea; }
 
-/* ── Masonry (JS-balanced columns, centered) ───────────────────────────────── */
-/* The column count is chosen in albums.js (capped at the item count) so a few
-   photos stay centered instead of clinging to the left with an empty column. */
+/* ── Photo grid (centered rows) ────────────────────────────────────────────── */
+/* A wrapping flex row so an incomplete final row (1 or 2 photos) centers
+   instead of clinging to the left. Cards keep a fixed basis and never stretch. */
 .masonry-wrapper {
-  display: flex; justify-content: center; align-items: flex-start; gap: 18px;
-}
-.masonry-column {
-  display: flex; flex-direction: column; gap: 18px;
-  flex: 1 1 0; min-width: 0; max-width: 360px;
+  display: flex; flex-wrap: wrap; justify-content: center;
+  align-items: flex-start; gap: 18px;
 }
 
 .memory-card {
-  position: relative; background: var(--cloud); border-radius: var(--radius-sm);
+  position: relative; flex: 0 1 320px; max-width: 320px; align-self: flex-start;
+  background: var(--cloud); border-radius: var(--radius-sm);
   box-shadow: var(--shadow-sm); padding: 8px;
 }
 .memory-frame {
