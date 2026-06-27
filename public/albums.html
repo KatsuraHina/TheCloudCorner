@@ -1,0 +1,113 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>The Cloud Corner — Albums ☁️</title>
+  <link rel="icon" type="image/svg+xml" href="assets/favicon.svg" />
+  <link rel="preconnect" href="https://fonts.googleapis.com" />
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+  <link href="https://fonts.googleapis.com/css2?family=Quicksand:wght@400;500;600;700&family=Fredoka:wght@500;600;700&display=swap" rel="stylesheet" />
+  <link rel="stylesheet" href="css/styles.css" />
+  <link rel="stylesheet" href="css/albums.css" />
+</head>
+<body class="planner-body">
+  <!-- ===== Top bar ===== -->
+  <header class="topbar">
+    <div class="topbar-left">
+      <a href="index.html" class="topbar-logo" style="text-decoration:none">☁️ The Cloud Corner</a>
+    </div>
+    <div class="topbar-right">
+      <a href="index.html" class="ghost-btn topbar-link">🏠 Planner</a>
+      <span id="user-chip" class="user-chip" hidden></span>
+      <button id="signout-btn" class="ghost-btn" hidden>Sign out</button>
+    </div>
+  </header>
+
+  <!-- ===== Loading veil (shown until auth resolves) ===== -->
+  <div id="loading-veil" class="loading-veil">
+    <div class="cloud-spinner">☁️</div>
+    <p>Floating in…</p>
+  </div>
+
+  <main id="app" class="app" hidden>
+
+    <!-- ===== Bookshelf view ===== -->
+    <section id="bookshelf-view">
+      <h1 class="page-title">Our Albums</h1>
+      <p class="albums-sub">A little shelf of our memories. Tap an album to open it ☁️</p>
+      <div class="shelf-grid" id="shelf-grid">
+        <!-- album cards + "new album" card injected by albums.js -->
+      </div>
+    </section>
+
+    <!-- ===== Gallery (single album) view ===== -->
+    <section id="gallery-view" hidden>
+      <div class="gallery-header">
+        <button class="pill-btn" id="back-btn" type="button">← Back</button>
+        <h1 class="gallery-title" id="gallery-title">Album</h1>
+        <div class="gallery-actions">
+          <button class="pill-btn" id="letter-btn" type="button">✉️ Letter</button>
+          <button class="pill-btn pill-primary" id="upload-btn" type="button">⬆️ Upload</button>
+          <button class="pill-btn pill-danger" id="delete-album-btn" type="button" hidden>🗑 Delete album</button>
+        </div>
+      </div>
+      <p class="gallery-empty" id="gallery-empty" hidden>No photos or videos yet — tap <strong>Upload</strong> to add the first one ☁️</p>
+      <div id="masonry" class="masonry-wrapper"></div>
+    </section>
+  </main>
+
+  <!-- ===== Create-album modal ===== -->
+  <div class="modal-overlay" id="create-modal" hidden>
+    <div class="modal-card" role="dialog" aria-modal="true" aria-labelledby="create-title">
+      <button class="modal-close" data-close="create-modal" type="button" aria-label="Close">×</button>
+      <h2 id="create-title" class="modal-title">New album</h2>
+      <label class="field">
+        <span>Album name</span>
+        <input id="create-name" type="text" placeholder="e.g. Our first trip" maxlength="80" />
+      </label>
+      <label class="field">
+        <span>A little letter (optional)</span>
+        <textarea id="create-letter" rows="4" placeholder="Write a note to go with this album…"></textarea>
+      </label>
+      <button class="primary-btn" id="create-submit" type="button">Create album</button>
+    </div>
+  </div>
+
+  <!-- ===== Upload modal ===== -->
+  <div class="modal-overlay" id="upload-modal" hidden>
+    <div class="modal-card" role="dialog" aria-modal="true" aria-labelledby="upload-title">
+      <button class="modal-close" data-close="upload-modal" type="button" aria-label="Close">×</button>
+      <h2 id="upload-title" class="modal-title">Add photos &amp; videos</h2>
+      <label class="drop-zone" id="drop-zone">
+        <input id="file-input" type="file" accept="image/*,video/*" multiple hidden />
+        <span class="drop-emoji">🖼️</span>
+        <span>Tap to choose, or drop files here</span>
+        <span class="drop-hint">Images &amp; videos · up to 50&nbsp;MB each</span>
+      </label>
+      <div id="upload-list" class="upload-list"></div>
+    </div>
+  </div>
+
+  <!-- ===== Letter modal ===== -->
+  <div class="modal-overlay" id="letter-modal" hidden>
+    <div class="modal-card letter-card" role="dialog" aria-modal="true">
+      <button class="modal-close" data-close="letter-modal" type="button" aria-label="Close">×</button>
+      <h2 class="modal-title" id="letter-modal-title">A letter</h2>
+      <p class="letter-text" id="letter-text"></p>
+    </div>
+  </div>
+
+  <!-- ===== Lightbox ===== -->
+  <div id="lightbox" class="lightbox" hidden>
+    <button class="lightbox-close" id="lightbox-close" type="button" aria-label="Close">×</button>
+    <button class="lightbox-nav lightbox-prev" id="lightbox-prev" type="button" aria-label="Previous">‹</button>
+    <div class="lightbox-stage" id="lightbox-stage"></div>
+    <button class="lightbox-nav lightbox-next" id="lightbox-next" type="button" aria-label="Next">›</button>
+    <div class="lightbox-caption" id="lightbox-caption"></div>
+  </div>
+
+  <!-- Firebase + app logic (modular ESM) -->
+  <script type="module" src="js/albums.js"></script>
+</body>
+</html>

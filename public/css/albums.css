@@ -1,0 +1,192 @@
+/* ───────────────────────────────────────────────────────────────────────────
+   The Cloud Corner — Albums
+   Reuses the Cinnamoroll theme tokens from styles.css (--sky, --cloud, --blue…).
+   ─────────────────────────────────────────────────────────────────────────── */
+
+.topbar-link { text-decoration: none; }
+.albums-sub { color: var(--ink-soft); margin: -6px 0 22px; }
+
+/* ── Bookshelf ─────────────────────────────────────────────────────────────── */
+.shelf-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(200px, 1fr));
+  gap: 22px;
+}
+
+.album-item {
+  position: relative; display: flex; flex-direction: column;
+  background: var(--cloud); border: none; border-radius: var(--radius);
+  box-shadow: var(--shadow-sm); cursor: pointer; overflow: hidden;
+  padding: 0; font-family: var(--font-body); text-align: left;
+  transition: transform 0.18s ease, box-shadow 0.18s ease;
+}
+.album-item:hover { transform: translateY(-4px) rotate(-0.6deg); box-shadow: var(--shadow); }
+
+.album-cover {
+  width: 100%; aspect-ratio: 4 / 3; object-fit: cover; display: block;
+  background: var(--cloud-soft);
+}
+.album-cover-empty {
+  display: grid; place-items: center; font-size: 3rem; color: var(--blue);
+}
+.album-label {
+  font-family: var(--font-head); font-weight: 600; color: var(--blue-ink);
+  padding: 12px 14px; display: flex; align-items: center; justify-content: space-between; gap: 8px;
+}
+.album-count { font-family: var(--font-body); font-weight: 600; font-size: 0.78rem; color: var(--ink-soft); }
+
+.album-add {
+  display: grid; place-items: center; gap: 4px; min-height: 200px;
+  background: var(--cloud-soft); border: 2px dashed #cfe6f3;
+}
+.album-add:hover { background: #e4f1fa; }
+.album-add-plus { font-size: 2.6rem; color: var(--blue); line-height: 1; }
+.album-add .album-label { justify-content: center; color: var(--ink-soft); }
+
+/* ── Gallery header ────────────────────────────────────────────────────────── */
+.gallery-header {
+  display: flex; align-items: center; gap: 12px; flex-wrap: wrap;
+  margin: 8px 0 18px;
+}
+.gallery-title {
+  font-family: var(--font-head); font-weight: 700; font-size: 1.9rem;
+  color: var(--ink); margin: 0; flex: 1; min-width: 160px;
+}
+.gallery-actions { display: flex; gap: 8px; flex-wrap: wrap; }
+.gallery-empty {
+  text-align: center; color: var(--ink-soft); background: var(--cloud-soft);
+  border-radius: var(--radius); padding: 30px 20px; box-shadow: var(--shadow-sm);
+}
+
+.pill-btn {
+  border: none; cursor: pointer; border-radius: 999px; padding: 9px 16px;
+  background: var(--cloud); color: var(--blue-ink); box-shadow: var(--shadow-sm);
+  font-family: var(--font-head); font-weight: 600; font-size: 0.95rem;
+  transition: background 0.15s, transform 0.1s;
+}
+.pill-btn:hover { background: var(--cloud-soft); }
+.pill-btn:active { transform: scale(0.96); }
+.pill-primary { background: var(--blue); color: #fff; }
+.pill-primary:hover { background: var(--blue-ink); }
+.pill-danger { color: #c25a6c; }
+.pill-danger:hover { background: #ffe6ea; }
+
+/* ── Masonry (CSS columns) ─────────────────────────────────────────────────── */
+.masonry-wrapper { column-count: 3; column-gap: 18px; }
+@media (max-width: 880px) { .masonry-wrapper { column-count: 2; } }
+@media (max-width: 520px) { .masonry-wrapper { column-count: 1; } }
+
+.memory-card {
+  position: relative; background: var(--cloud); border-radius: var(--radius-sm);
+  box-shadow: var(--shadow-sm); padding: 8px; margin: 0 0 18px;
+  break-inside: avoid;
+}
+.memory-frame {
+  position: relative; cursor: zoom-in; border-radius: 10px; overflow: hidden;
+  background: var(--cloud-soft); line-height: 0;
+}
+.memory-media { width: 100%; height: auto; display: block; }
+.memory-play {
+  position: absolute; inset: 0; margin: auto; width: 54px; height: 54px;
+  display: grid; place-items: center; border-radius: 50%;
+  background: rgba(90, 147, 184, 0.75); color: #fff; font-size: 1.2rem;
+  pointer-events: none;
+}
+.memory-caption {
+  font-family: var(--font-body); color: var(--ink); font-size: 0.92rem;
+  padding: 8px 6px 2px; min-height: 0.5em; word-break: break-word;
+}
+.memory-caption.editable:empty::before { content: "add caption…"; color: var(--ink-soft); }
+.memory-del {
+  position: absolute; top: 12px; right: 12px; width: 26px; height: 26px;
+  border: none; border-radius: 50%; cursor: pointer; line-height: 1;
+  background: rgba(255, 255, 255, 0.9); color: #c25a6c; font-size: 1.1rem;
+  box-shadow: var(--shadow-sm); opacity: 0; transition: opacity 0.15s;
+}
+.memory-card:hover .memory-del { opacity: 1; }
+.memory-del:hover { background: #ffe6ea; }
+
+/* ── Modals ────────────────────────────────────────────────────────────────── */
+.modal-overlay {
+  position: fixed; inset: 0; z-index: 60; display: grid; place-items: center;
+  padding: 24px; background: rgba(120, 170, 205, 0.28); backdrop-filter: blur(3px);
+  animation: fade-in 0.2s ease;
+}
+.modal-card {
+  position: relative; width: min(440px, 94vw); background: var(--cloud);
+  border-radius: 24px; padding: 26px 26px 24px; box-shadow: 0 20px 50px rgba(120, 170, 205, 0.35);
+  border: 2px solid #eaf4fb; text-align: left; max-height: 86vh; overflow-y: auto;
+}
+.modal-title { font-family: var(--font-head); font-weight: 700; color: var(--blue-ink); margin: 0 0 16px; }
+.modal-close {
+  position: absolute; top: 12px; right: 14px; border: none; background: transparent;
+  color: var(--ink-soft); font-size: 1.6rem; line-height: 1; cursor: pointer;
+}
+.modal-close:hover { color: var(--blue-ink); }
+.modal-card .field { margin-bottom: 14px; }
+.modal-card textarea {
+  border: 2px solid var(--cloud-soft); background: var(--cloud-soft);
+  border-radius: var(--radius-sm); padding: 11px 13px; font-family: var(--font-body);
+  font-size: 1rem; color: var(--ink); resize: vertical;
+}
+.modal-card textarea:focus { outline: none; border-color: var(--blue); background: #fff; }
+
+/* Drop zone + upload progress */
+.drop-zone {
+  display: grid; place-items: center; gap: 4px; text-align: center;
+  border: 2px dashed #cfe6f3; border-radius: var(--radius); padding: 26px 18px;
+  background: var(--cloud-soft); color: var(--ink-soft); cursor: pointer;
+  font-weight: 600;
+}
+.drop-zone.is-over { border-color: var(--blue); background: #e4f1fa; }
+.drop-emoji { font-size: 2rem; }
+.drop-hint { font-size: 0.8rem; font-weight: 500; }
+
+.upload-list { margin-top: 14px; display: flex; flex-direction: column; gap: 8px; }
+.upload-row {
+  display: grid; grid-template-columns: 1fr 90px auto; align-items: center; gap: 10px;
+  background: var(--cloud-soft); border-radius: 10px; padding: 8px 12px; font-size: 0.86rem;
+}
+.upload-name { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; color: var(--ink); }
+.upload-bar { height: 7px; background: #d9e8f2; border-radius: 999px; overflow: hidden; }
+.upload-fill { height: 100%; width: 0; background: var(--blue); transition: width 0.2s ease; }
+.upload-status { color: var(--blue-ink); font-weight: 600; min-width: 1.5em; text-align: right; }
+.upload-row.is-done .upload-status { color: #5aa17a; }
+.upload-row.is-error { background: #ffe6ea; }
+.upload-row.is-error .upload-status { color: #c25a6c; }
+
+/* Letter modal */
+.letter-card { background: #fffdf7; }
+.letter-text { white-space: pre-wrap; line-height: 1.6; color: var(--ink); margin: 0; font-size: 1.05rem; }
+
+/* ── Lightbox ──────────────────────────────────────────────────────────────── */
+.lightbox {
+  position: fixed; inset: 0; z-index: 80; display: grid; place-items: center;
+  background: rgba(40, 60, 75, 0.92); backdrop-filter: blur(4px); padding: 24px;
+}
+.lightbox-stage { max-width: 90vw; max-height: 82vh; display: grid; place-items: center; }
+.lightbox-stage img, .lightbox-stage video {
+  max-width: 90vw; max-height: 82vh; border-radius: 12px;
+  box-shadow: 0 0 40px rgba(0, 0, 0, 0.4);
+}
+.lightbox-caption {
+  position: absolute; bottom: 22px; left: 0; right: 0; text-align: center;
+  color: #fff; font-family: var(--font-body); padding: 0 24px;
+}
+.lightbox-close {
+  position: absolute; top: 18px; right: 22px; border: none; background: transparent;
+  color: #fff; font-size: 2.2rem; line-height: 1; cursor: pointer;
+}
+.lightbox-nav {
+  position: absolute; top: 50%; transform: translateY(-50%);
+  border: none; background: rgba(255, 255, 255, 0.15); color: #fff;
+  width: 52px; height: 52px; border-radius: 50%; cursor: pointer;
+  font-size: 2rem; line-height: 1; display: grid; place-items: center;
+}
+.lightbox-nav:hover { background: rgba(255, 255, 255, 0.3); }
+.lightbox-prev { left: 16px; }
+.lightbox-next { right: 16px; }
+@media (max-width: 520px) {
+  .lightbox-nav { width: 40px; height: 40px; font-size: 1.5rem; }
+  .lightbox-prev { left: 6px; } .lightbox-next { right: 6px; }
+}

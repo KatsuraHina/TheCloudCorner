@@ -10,5 +10,28 @@ service cloud.firestore {
         allow read, write: if request.auth != null && request.auth.uid == userId;
       }
     }
+
+    // Shared family albums: every signed-in user can read, add and contribute.
+    // Creating an album/item stamps you as its owner. Album metadata (cover,
+    // item count, title, letter) is editable by anyone signed in — but the
+    // owner field can never change (no ownership hijacking), and only the
+    // album's creator can delete the whole album. Items are fully communal so
+    // contributors and the album owner can both tidy up.
+    match /albums/{albumId} {
+      allow read: if request.auth != null;
+      allow create: if request.auth != null
+                    && request.resource.data.ownerUid == request.auth.uid;
+      allow update: if request.auth != null
+                    && request.resource.data.ownerUid == resource.data.ownerUid;
+      allow delete: if request.auth != null
+                    && resource.data.ownerUid == request.auth.uid;
+
+      match /items/{itemId} {
+        allow read: if request.auth != null;
+        allow create: if request.auth != null
+                      && request.resource.data.ownerUid == request.auth.uid;
+        allow update, delete: if request.auth != null;
+      }
+    }
   }
 }
