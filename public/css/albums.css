@@ -10,6 +10,7 @@
 .shelf-grid {
   display: grid;
   grid-template-columns: repeat(auto-fill, minmax(200px, 1fr));
+  align-items: start; /* uncropped covers vary in height — don't stretch rows */
   gap: 22px;
 }
 
@@ -23,11 +24,11 @@
 .album-item:hover { transform: translateY(-4px) rotate(-0.6deg); box-shadow: var(--shadow); }
 
 .album-cover {
-  width: 100%; aspect-ratio: 4 / 3; object-fit: cover; display: block;
-  background: var(--cloud-soft);
+  width: 100%; height: auto; display: block; background: var(--cloud-soft);
 }
 .album-cover-empty {
-  display: grid; place-items: center; font-size: 3rem; color: var(--blue);
+  aspect-ratio: 4 / 3; display: grid; place-items: center;
+  font-size: 3rem; color: var(--blue);
 }
 .album-label {
   font-family: var(--font-head); font-weight: 600; color: var(--blue-ink);
@@ -71,15 +72,20 @@
 .pill-danger { color: #c25a6c; }
 .pill-danger:hover { background: #ffe6ea; }
 
-/* ── Masonry (CSS columns) ─────────────────────────────────────────────────── */
-.masonry-wrapper { column-count: 3; column-gap: 18px; }
-@media (max-width: 880px) { .masonry-wrapper { column-count: 2; } }
-@media (max-width: 520px) { .masonry-wrapper { column-count: 1; } }
+/* ── Masonry (JS-balanced columns, centered) ───────────────────────────────── */
+/* The column count is chosen in albums.js (capped at the item count) so a few
+   photos stay centered instead of clinging to the left with an empty column. */
+.masonry-wrapper {
+  display: flex; justify-content: center; align-items: flex-start; gap: 18px;
+}
+.masonry-column {
+  display: flex; flex-direction: column; gap: 18px;
+  flex: 1 1 0; min-width: 0; max-width: 360px;
+}
 
 .memory-card {
   position: relative; background: var(--cloud); border-radius: var(--radius-sm);
-  box-shadow: var(--shadow-sm); padding: 8px; margin: 0 0 18px;
-  break-inside: avoid;
+  box-shadow: var(--shadow-sm); padding: 8px;
 }
 .memory-frame {
   position: relative; cursor: zoom-in; border-radius: 10px; overflow: hidden;
@@ -110,6 +116,8 @@
   color: var(--blue-ink);
 }
 .memory-edit:hover { background: #e4f1fa; }
+.memory-cover:hover { background: #fff6da; }
+.memory-cover.is-cover { background: #fff1c2; color: #e0a93b; }
 .memory-del { color: #c25a6c; font-size: 1.1rem; }
 .memory-del:hover { background: #ffe6ea; }
 

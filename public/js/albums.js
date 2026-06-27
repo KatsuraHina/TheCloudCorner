@@ -169,8 +169,12 @@ function openAlbum(albumId) {
 
   unsubAlbumDoc = onSnapshot(doc(db, "albums", albumId), (snap) => {
     if (!snap.exists()) { showBookshelf(); return; }
+    const prevCover = currentAlbum && currentAlbum.coverPath;
     currentAlbum = { id: snap.id, ...snap.data() };
     paintAlbumChrome();
+    // Re-render only when the cover changed, so the ★ highlight follows it
+    // (avoids churn from itemCount updates during uploads).
+    if (currentAlbum.coverPath !== prevCover) renderMasonry();
   });
 
   const q = query(collection(db, "albums", albumId, "items"), orderBy("createdAt", "asc"));
@@ -193,6 +197,21 @@ function renderMasonry() {
   const wrap = $("masonry");
   wrap.innerHTML = "";
   $("gallery-empty").hidden = items.length > 0;
+  if (!items.length) return;
+
+  // Pick a column count that fits the width but never exceeds the photo count,
+  // so a handful of photos stay centered instead of leaving an empty column.
+  const w = wrap.clientWidth || window.innerWidth || 900;
+  const maxCols = w < 540 ? 1 : w < 900 ? 2 : 3;
+  const cols = Math.max(1, Math.min(maxCols, items.length));
+
+  const columnEls = [];
+  for (let c = 0; c < cols; c++) {
+    const col = document.createElement("div");
+    col.className = "masonry-column";
+    wrap.appendChild(col);
+    columnEls.push(col);
+  }
 
   // You can curate an item if you uploaded it, or if you own the album.
   const canCurate = (item) =>
@@ -211,9 +230,15 @@ function renderMasonry() {
     const caption = item.caption
       ? `<div class="memory-caption">${escapeHtml(item.caption)}</div>`
       : "";
-    // Hover actions (edit caption + delete) for people who can curate the item.
+    // Hover actions for curators: set-as-cover (photos only), edit caption, delete.
+    const isCover = currentAlbum && item.path && currentAlbum.coverPath === item.path;
+    const coverBtn = item.type === "photo"
+      ? `<button class="memory-act memory-cover${isCover ? " is-cover" : ""}" type="button"
+                 title="${isCover ? "This is the album cover" : "Set as album cover"}" aria-label="Set as album cover">★</button>`
+      : "";
     const actions = canCurate(item)
       ? `<div class="memory-actions">
+           ${coverBtn}
            <button class="memory-act memory-edit" type="button" title="${item.caption ? "Edit caption" : "Add caption"}" aria-label="Edit caption">✎</button>
            <button class="memory-act memory-del" type="button" title="Delete" aria-label="Delete">×</button>
          </div>`
@@ -222,6 +247,9 @@ function renderMasonry() {
     card.innerHTML = `<div class="memory-frame">${media}</div>${actions}${caption}`;
 
     card.querySelector(".memory-frame").addEventListener("click", () => openLightbox(index));
+
+    const coverEl = card.querySelector(".memory-cover");
+    if (coverEl) coverEl.addEventListener("click", () => setCover(item));
 
     const editBtn = card.querySelector(".memory-edit");
     if (editBtn) editBtn.addEventListener("click", () => openCaptionModal(item));
@@ -235,8 +263,23 @@ function renderMasonry() {
     const delBtn = card.querySelector(".memory-del");
     if (delBtn) delBtn.addEventListener("click", () => deleteItem(item));
 
-    wrap.appendChild(card);
+    // Fill columns left-to-right in upload order.
+    columnEls[index % cols].appendChild(card);
   });
+}
+
+async function setCover(item) {
+  if (item.type !== "photo") return;
+  try {
+    const { db, doc, updateDoc } = fb;
+    await updateDoc(doc(db, "albums", currentAlbumId), {
+      coverUrl: item.url,
+      coverPath: item.path,
+    });
+  } catch (err) {
+    console.error(err);
+    alert("Couldn't set the cover. Please try again.");
+  }
 }
 
 let captionItem = null; // item currently open in the caption modal
@@ -472,6 +515,14 @@ function wireStaticUi() {
   ["dragleave", "drop"].forEach((ev) =>
     dz.addEventListener(ev, (e) => { e.preventDefault(); dz.classList.remove("is-over"); }));
   dz.addEventListener("drop", (e) => handleFiles(e.dataTransfer.files));
+
+  // Re-flow the masonry columns when the window width changes (in gallery view).
+  let resizeTimer;
+  window.addEventListener("resize", () => {
+    if ($("gallery-view").hidden) return;
+    clearTimeout(resizeTimer);
+    resizeTimer = setTimeout(renderMasonry, 150);
+  });
 
   // Lightbox controls.
   $("lightbox-close").onclick = () => closeLightbox();
