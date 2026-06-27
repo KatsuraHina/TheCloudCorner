@@ -22,3 +22,20 @@ jobs:
           firebaseServiceAccount: ${{ secrets.FIREBASE_SERVICE_ACCOUNT }}
           channelId: live
           projectId: thecloudcorner-b9c9c
+
+  # Hosting (above) only ships the static files. Firestore & Storage security
+  # rules need a separate deploy, so the albums feature can actually read/write.
+  # Runs independently of hosting so a flaky hosting release can't block it.
+  rules:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Check out the repository
+        uses: actions/checkout@v4
+
+      - name: Deploy Firestore & Storage rules
+        uses: w9jds/firebase-action@master
+        with:
+          args: deploy --only firestore:rules,storage --project thecloudcorner-b9c9c --non-interactive
+        env:
+          GCP_SA_KEY: ${{ secrets.FIREBASE_SERVICE_ACCOUNT }}
+          PROJECT_ID: thecloudcorner-b9c9c
