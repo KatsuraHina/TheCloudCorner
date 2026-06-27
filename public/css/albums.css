@@ -94,16 +94,23 @@
 }
 .memory-caption {
   font-family: var(--font-body); color: var(--ink); font-size: 0.92rem;
-  padding: 8px 6px 2px; min-height: 0.5em; word-break: break-word;
+  padding: 8px 6px 2px; word-break: break-word;
 }
-.memory-caption.editable:empty::before { content: "add caption…"; color: var(--ink-soft); }
-.memory-del {
-  position: absolute; top: 12px; right: 12px; width: 26px; height: 26px;
-  border: none; border-radius: 50%; cursor: pointer; line-height: 1;
-  background: rgba(255, 255, 255, 0.9); color: #c25a6c; font-size: 1.1rem;
-  box-shadow: var(--shadow-sm); opacity: 0; transition: opacity 0.15s;
+/* Hover action cluster (edit caption + delete), top-right of the card. */
+.memory-actions {
+  position: absolute; top: 12px; right: 12px; display: flex; gap: 6px;
+  opacity: 0; transition: opacity 0.15s;
 }
-.memory-card:hover .memory-del { opacity: 1; }
+.memory-card:hover .memory-actions,
+.memory-actions:focus-within { opacity: 1; }
+.memory-act {
+  width: 28px; height: 28px; border: none; border-radius: 50%; cursor: pointer;
+  line-height: 1; display: grid; place-items: center; font-size: 0.95rem;
+  background: rgba(255, 255, 255, 0.92); box-shadow: var(--shadow-sm);
+  color: var(--blue-ink);
+}
+.memory-edit:hover { background: #e4f1fa; }
+.memory-del { color: #c25a6c; font-size: 1.1rem; }
 .memory-del:hover { background: #ffe6ea; }
 
 /* ── Modals ────────────────────────────────────────────────────────────────── */
@@ -130,6 +137,8 @@
   font-size: 1rem; color: var(--ink); resize: vertical;
 }
 .modal-card textarea:focus { outline: none; border-color: var(--blue); background: #fff; }
+.modal-actions { display: flex; justify-content: flex-end; gap: 10px; margin-top: 6px; }
+.modal-actions .primary-btn { margin-top: 0; }
 
 /* Drop zone + upload progress */
 .drop-zone {

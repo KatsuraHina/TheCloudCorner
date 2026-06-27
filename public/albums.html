@@ -89,6 +89,22 @@
     </div>
   </div>
 
+  <!-- ===== Caption modal ===== -->
+  <div class="modal-overlay" id="caption-modal" hidden>
+    <div class="modal-card" role="dialog" aria-modal="true" aria-labelledby="caption-modal-title">
+      <button class="modal-close" data-close="caption-modal" type="button" aria-label="Close">×</button>
+      <h2 class="modal-title" id="caption-modal-title">Caption</h2>
+      <label class="field">
+        <span>Write a little something for this memory</span>
+        <textarea id="caption-input" rows="3" maxlength="280" placeholder="e.g. Best bibimbap ever 🍲"></textarea>
+      </label>
+      <div class="modal-actions">
+        <button class="pill-btn" id="caption-cancel" type="button">Cancel</button>
+        <button class="primary-btn" id="caption-save" type="button">Save caption</button>
+      </div>
+    </div>
+  </div>
+
   <!-- ===== Letter modal ===== -->
   <div class="modal-overlay" id="letter-modal" hidden>
     <div class="modal-card letter-card" role="dialog" aria-modal="true">

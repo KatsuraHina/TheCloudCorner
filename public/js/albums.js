@@ -207,20 +207,31 @@ function renderMasonry() {
          <span class="memory-play">▶</span>`
       : `<img class="memory-media" src="${escapeAttr(item.url)}" alt="" loading="lazy" />`;
 
-    const caption = `<div class="memory-caption">${escapeHtml(item.caption || "")}</div>`;
-    const del = canCurate(item)
-      ? `<button class="memory-del" type="button" title="Delete" aria-label="Delete">×</button>`
+    // Caption text only appears once one exists — no placeholder clutter.
+    const caption = item.caption
+      ? `<div class="memory-caption">${escapeHtml(item.caption)}</div>`
+      : "";
+    // Hover actions (edit caption + delete) for people who can curate the item.
+    const actions = canCurate(item)
+      ? `<div class="memory-actions">
+           <button class="memory-act memory-edit" type="button" title="${item.caption ? "Edit caption" : "Add caption"}" aria-label="Edit caption">✎</button>
+           <button class="memory-act memory-del" type="button" title="Delete" aria-label="Delete">×</button>
+         </div>`
       : "";
 
-    card.innerHTML = `<div class="memory-frame">${media}</div>${caption}${del}`;
+    card.innerHTML = `<div class="memory-frame">${media}</div>${actions}${caption}`;
 
     card.querySelector(".memory-frame").addEventListener("click", () => openLightbox(index));
+
+    const editBtn = card.querySelector(".memory-edit");
+    if (editBtn) editBtn.addEventListener("click", () => openCaptionModal(item));
+
     const cap = card.querySelector(".memory-caption");
-    if (canCurate(item)) {
-      cap.classList.add("editable");
+    if (cap && canCurate(item)) {
       cap.title = "Double-click to edit caption";
-      cap.addEventListener("dblclick", () => editCaption(item));
+      cap.addEventListener("dblclick", () => openCaptionModal(item));
     }
+
     const delBtn = card.querySelector(".memory-del");
     if (delBtn) delBtn.addEventListener("click", () => deleteItem(item));
 
@@ -228,12 +239,27 @@ function renderMasonry() {
   });
 }
 
-async function editCaption(item) {
-  const next = prompt("Caption:", item.caption || "");
-  if (next == null) return;
+let captionItem = null; // item currently open in the caption modal
+
+function openCaptionModal(item) {
+  captionItem = item;
+  const input = $("caption-input");
+  input.value = item.caption || "";
+  $("caption-modal-title").textContent = item.caption ? "Edit caption" : "Add caption";
+  openModal("caption-modal");
+  input.focus();
+  input.select();
+}
+
+async function saveCaption() {
+  if (!captionItem) return;
+  const text = $("caption-input").value.trim();
+  const item = captionItem;
+  closeModal("caption-modal");
+  captionItem = null;
   try {
     const { db, doc, updateDoc } = fb;
-    await updateDoc(doc(db, "albums", currentAlbumId, "items", item.id), { caption: next.trim() });
+    await updateDoc(doc(db, "albums", currentAlbumId, "items", item.id), { caption: text });
   } catch (err) {
     console.error(err);
   }
@@ -414,6 +440,12 @@ function showBookshelf() {
 // ── Static UI wiring (safe before Firebase loads) ────────────────────────────
 function wireStaticUi() {
   $("create-submit").onclick = () => submitCreateAlbum();
+  $("caption-save").onclick = () => saveCaption();
+  $("caption-cancel").onclick = () => { closeModal("caption-modal"); captionItem = null; };
+  // Enter saves (Shift+Enter for a newline).
+  $("caption-input").addEventListener("keydown", (e) => {
+    if (e.key === "Enter" && !e.shiftKey) { e.preventDefault(); saveCaption(); }
+  });
   $("back-btn").onclick = () => showBookshelf();
   $("upload-btn").onclick = () => openUploadModal();
   $("delete-album-btn").onclick = () => deleteAlbum();
