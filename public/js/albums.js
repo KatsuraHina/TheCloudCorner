@@ -193,64 +193,145 @@ function paintAlbumChrome() {
   $("delete-album-btn").hidden = currentAlbum.ownerUid !== currentUid;
 }
 
-function renderMasonry() {
-  const wrap = $("masonry");
-  wrap.innerHTML = "";
-  $("gallery-empty").hidden = items.length > 0;
-  if (!items.length) return;
+// Natural aspect ratios (width / height), measured once per URL and cached.
+const aspectCache = new Map();
+let galleryToken = 0;
 
-  // You can curate an item if you uploaded it, or if you own the album.
+function measureAspect(item) {
+  if (aspectCache.has(item.url)) return Promise.resolve(aspectCache.get(item.url));
+  const fallback = 1.4;
+  return new Promise((resolve) => {
+    if (item.type === "video") {
+      const v = document.createElement("video");
+      v.preload = "metadata";
+      v.onloadedmetadata = () => {
+        const a = v.videoWidth && v.videoHeight ? v.videoWidth / v.videoHeight : fallback;
+        aspectCache.set(item.url, a); resolve(a);
+      };
+      v.onerror = () => { aspectCache.set(item.url, fallback); resolve(fallback); };
+      v.src = item.url;
+    } else {
+      const img = new Image();
+      img.onload = () => {
+        const a = img.naturalWidth && img.naturalHeight ? img.naturalWidth / img.naturalHeight : fallback;
+        aspectCache.set(item.url, a); resolve(a);
+      };
+      img.onerror = () => { aspectCache.set(item.url, fallback); resolve(fallback); };
+      img.src = item.url;
+    }
+  });
+}
+
+async function renderMasonry() {
+  const wrap = $("masonry");
+  $("gallery-empty").hidden = items.length > 0;
+  if (!items.length) { wrap.innerHTML = ""; return; }
+
+  const token = ++galleryToken;
+  const list = items.slice();
+
   const canCurate = (item) =>
     item.ownerUid === currentUid || (currentAlbum && currentAlbum.ownerUid === currentUid);
 
-  items.forEach((item, index) => {
-    const card = document.createElement("div");
-    card.className = "memory-card";
+  wrap.innerHTML = "";
+  list.forEach((item, index) => wrap.appendChild(buildCard(item, index, canCurate)));
 
-    const media = item.type === "video"
-      ? `<video class="memory-media" src="${escapeAttr(item.url)}" preload="metadata" muted playsinline></video>
-         <span class="memory-play">▶</span>`
-      : `<img class="memory-media" src="${escapeAttr(item.url)}" alt="" loading="lazy" />`;
-
-    // Caption text only appears once one exists — no placeholder clutter.
-    const caption = item.caption
-      ? `<div class="memory-caption">${escapeHtml(item.caption)}</div>`
-      : "";
-    // Hover actions for curators: set-as-cover (photos only), edit caption, delete.
-    const isCover = currentAlbum && item.path && currentAlbum.coverPath === item.path;
-    const coverBtn = item.type === "photo"
-      ? `<button class="memory-act memory-cover${isCover ? " is-cover" : ""}" type="button"
-                 title="${isCover ? "This is the album cover" : "Set as album cover"}" aria-label="Set as album cover">★</button>`
-      : "";
-    const actions = canCurate(item)
-      ? `<div class="memory-actions">
-           ${coverBtn}
-           <button class="memory-act memory-edit" type="button" title="${item.caption ? "Edit caption" : "Add caption"}" aria-label="Edit caption">✎</button>
-           <button class="memory-act memory-del" type="button" title="Delete" aria-label="Delete">×</button>
-         </div>`
-      : "";
-
-    card.innerHTML = `<div class="memory-frame">${media}</div>${actions}${caption}`;
-
-    card.querySelector(".memory-frame").addEventListener("click", () => openLightbox(index));
-
-    const coverEl = card.querySelector(".memory-cover");
-    if (coverEl) coverEl.addEventListener("click", () => setCover(item));
-
-    const editBtn = card.querySelector(".memory-edit");
-    if (editBtn) editBtn.addEventListener("click", () => openCaptionModal(item));
-
-    const cap = card.querySelector(".memory-caption");
-    if (cap && canCurate(item)) {
-      cap.title = "Double-click to edit caption";
-      cap.addEventListener("dblclick", () => openCaptionModal(item));
-    }
-
-    const delBtn = card.querySelector(".memory-del");
-    if (delBtn) delBtn.addEventListener("click", () => deleteItem(item));
-
-    wrap.appendChild(card);
+  // Measure aspect ratios (cached), then lay the rows out justified.
+  await Promise.all(list.map(measureAspect));
+  if (token !== galleryToken) return; // a newer render superseded this one
+  Array.from(wrap.children).forEach((card, i) => {
+    card.dataset.aspect = aspectCache.get(list[i].url) || 1.4;
   });
+  layoutJustified();
+}
+
+function buildCard(item, index, canCurate) {
+  const card = document.createElement("div");
+  card.className = "memory-card";
+
+  const media = item.type === "video"
+    ? `<video class="memory-media" src="${escapeAttr(item.url)}" preload="metadata" muted playsinline></video>
+       <span class="memory-play">▶</span>`
+    : `<img class="memory-media" src="${escapeAttr(item.url)}" alt="" loading="lazy" />`;
+
+  // Caption text only appears once one exists — no placeholder clutter.
+  const caption = item.caption
+    ? `<div class="memory-caption">${escapeHtml(item.caption)}</div>`
+    : "";
+  // Hover actions for curators: set-as-cover (photos only), edit caption, delete.
+  const isCover = currentAlbum && item.path && currentAlbum.coverPath === item.path;
+  const coverBtn = item.type === "photo"
+    ? `<button class="memory-act memory-cover${isCover ? " is-cover" : ""}" type="button"
+               title="${isCover ? "This is the album cover" : "Set as album cover"}" aria-label="Set as album cover">★</button>`
+    : "";
+  const actions = canCurate(item)
+    ? `<div class="memory-actions">
+         ${coverBtn}
+         <button class="memory-act memory-edit" type="button" title="${item.caption ? "Edit caption" : "Add caption"}" aria-label="Edit caption">✎</button>
+         <button class="memory-act memory-del" type="button" title="Delete" aria-label="Delete">×</button>
+       </div>`
+    : "";
+
+  // Placeholder frame height avoids a collapsed flash before layout runs.
+  card.innerHTML = `<div class="memory-frame" style="height:240px">${media}</div>${actions}${caption}`;
+
+  card.querySelector(".memory-frame").addEventListener("click", () => openLightbox(index));
+
+  const coverEl = card.querySelector(".memory-cover");
+  if (coverEl) coverEl.addEventListener("click", () => setCover(item));
+
+  const editBtn = card.querySelector(".memory-edit");
+  if (editBtn) editBtn.addEventListener("click", () => openCaptionModal(item));
+
+  const cap = card.querySelector(".memory-caption");
+  if (cap && canCurate(item)) {
+    cap.title = "Double-click to edit caption";
+    cap.addEventListener("dblclick", () => openCaptionModal(item));
+  }
+
+  const delBtn = card.querySelector(".memory-del");
+  if (delBtn) delBtn.addEventListener("click", () => deleteItem(item));
+
+  return card;
+}
+
+// Google-Photos-style justified rows: greedily pack cards into rows that fill
+// the width at a target height; full rows are scaled to fill exactly (uniform
+// height, no gaps), and the last row keeps the target height and centers.
+const GALLERY_GAP = 14;    // must match .masonry-wrapper gap
+const GALLERY_CHROME = 16; // .memory-card horizontal padding (8 + 8), border-box
+
+function layoutJustified() {
+  const wrap = $("masonry");
+  const cards = Array.from(wrap.children);
+  if (!cards.length) return;
+  const W = wrap.clientWidth;
+  if (!W) return;
+  const targetH = W < 600 ? 190 : 250;
+
+  const aspectOf = (c) => Number(c.dataset.aspect) || 1.4;
+
+  const rows = [];
+  let row = [];
+  for (const card of cards) {
+    row.push(card);
+    const sumA = row.reduce((s, c) => s + aspectOf(c), 0);
+    const need = targetH * sumA + GALLERY_CHROME * row.length + GALLERY_GAP * (row.length - 1);
+    if (need >= W) { rows.push({ cards: row, full: true }); row = []; }
+  }
+  if (row.length) rows.push({ cards: row, full: false });
+
+  for (const r of rows) {
+    const sumA = r.cards.reduce((s, c) => s + aspectOf(c), 0);
+    const avail = W - GALLERY_CHROME * r.cards.length - GALLERY_GAP * (r.cards.length - 1);
+    let h = avail / sumA;
+    if (!r.full) h = Math.min(h, targetH); // last row: don't upscale — center it instead
+    for (const card of r.cards) {
+      const frameW = Math.floor(h * aspectOf(card));
+      card.style.width = (frameW + GALLERY_CHROME) + "px";
+      card.querySelector(".memory-frame").style.height = Math.floor(h) + "px";
+    }
+  }
 }
 
 async function setCover(item) {
@@ -500,6 +581,14 @@ function wireStaticUi() {
   ["dragleave", "drop"].forEach((ev) =>
     dz.addEventListener(ev, (e) => { e.preventDefault(); dz.classList.remove("is-over"); }));
   dz.addEventListener("drop", (e) => handleFiles(e.dataTransfer.files));
+
+  // Re-justify the gallery rows when the window width changes.
+  let glResize;
+  window.addEventListener("resize", () => {
+    if ($("gallery-view").hidden) return;
+    clearTimeout(glResize);
+    glResize = setTimeout(layoutJustified, 150);
+  });
 
   // Lightbox controls.
   $("lightbox-close").onclick = () => closeLightbox();

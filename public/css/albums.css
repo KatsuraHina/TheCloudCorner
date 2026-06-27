@@ -72,24 +72,26 @@
 .pill-danger { color: #c25a6c; }
 .pill-danger:hover { background: #ffe6ea; }
 
-/* ── Photo grid (centered rows) ────────────────────────────────────────────── */
-/* A wrapping flex row so an incomplete final row (1 or 2 photos) centers
-   instead of clinging to the left. Cards keep a fixed basis and never stretch. */
+/* ── Justified photo rows (Google-Photos style) ────────────────────────────── */
+/* albums.js measures each photo's aspect ratio and sizes the cards so every
+   full row shares one height and fills the width (no gaps); the last row keeps
+   the target height and is centered. Card widths/heights are set inline. */
 .masonry-wrapper {
   display: flex; flex-wrap: wrap; justify-content: center;
-  align-items: flex-start; gap: 18px;
+  align-content: flex-start; gap: 14px;
 }
 
 .memory-card {
-  position: relative; flex: 0 1 320px; max-width: 320px; align-self: flex-start;
+  position: relative; flex: 0 0 auto;
   background: var(--cloud); border-radius: var(--radius-sm);
   box-shadow: var(--shadow-sm); padding: 8px;
 }
 .memory-frame {
   position: relative; cursor: zoom-in; border-radius: 10px; overflow: hidden;
-  background: var(--cloud-soft); line-height: 0;
+  background: var(--cloud-soft); line-height: 0; width: 100%;
 }
-.memory-media { width: 100%; height: auto; display: block; }
+/* Frame is sized to the photo's own aspect ratio, so cover == no crop. */
+.memory-media { width: 100%; height: 100%; object-fit: cover; display: block; }
 .memory-play {
   position: absolute; inset: 0; margin: auto; width: 54px; height: 54px;
   display: grid; place-items: center; border-radius: 50%;
