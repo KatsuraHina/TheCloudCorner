@@ -21,6 +21,9 @@ const DAYS = [
   { key: "master",    label: "Master to-do list", icon: "☁️" },
 ];
 
+// The 7 real weekdays (excludes "master"), Monday-first.
+const WEEKDAY_KEYS = ["monday", "tuesday", "wednesday", "thursday", "friday", "saturday", "sunday"];
+
 const $ = (id) => document.getElementById(id);
 
 // Firebase handles, populated by loadFirebase() only when configured.
@@ -31,6 +34,19 @@ let allTasks = [];                              // cached snapshot of every task
 let currentWeekStart = mondayKey(new Date());   // "YYYY-MM-DD" of the viewed week's Monday
 const celebratedKeys = new Set();               // columns already shown as complete
 let lastRenderWeek = null;                       // for suppressing popups on load / week switch
+
+// ── Recurring (repeating) to-dos ──────────────────────────────────────────────
+let unsubRules = null;
+let recurringRules = [];            // cached snapshot of users/{uid}/recurringRules
+let ruleFreq = "daily";             // current selection in the create form
+let selectedWeekdays = new Set();   // weekday keys chosen in the create form
+let pendingDelete = null;           // task awaiting the delete-choice modal
+const WEEKDAY_SHORT = {
+  monday: "Mon", tuesday: "Tue", wednesday: "Wed", thursday: "Thu",
+  friday: "Fri", saturday: "Sat", sunday: "Sun",
+};
+const MONTHS = ["January", "February", "March", "April", "May", "June",
+  "July", "August", "September", "October", "November", "December"];
 
 // ── Week date helpers ─────────────────────────────────────────────────────────
 // Monday is treated as the start of the week (matches the Mon–Sun columns).
@@ -61,6 +77,7 @@ buildSkeleton();
 startClock();
 renderWeekLabel();
 wireCelebrate();
+wireRecurring();
 $("welcome-name").textContent = "friend";
 
 if (!isConfigured) {
@@ -110,6 +127,7 @@ function bootForUser(user) {
 
   setupWeekNav();
   listenToTasks(user.uid);
+  listenToRules(user.uid);
 }
 
 // ── Week navigation ──────────────────────────────────────────────────────────
@@ -194,8 +212,7 @@ function buildSkeleton() {
 // ── Live to-dos ──────────────────────────────────────────────────────────────
 // One listener caches every task; render() shows the right slice for the week
 // being viewed. Weekday tasks belong to a specific week (weekStart); the Master
-// list is shared across all weeks.
-const WEEKDAY_KEYS = ["monday", "tuesday", "wednesday", "thursday", "friday", "saturday", "sunday"];
+// list is shared across all weeks. (WEEKDAY_KEYS is declared near the top.)
 
 function listenToTasks(uid) {
   currentUid = uid;
@@ -222,6 +239,7 @@ function migrateLegacyTasks(uid) {
 }
 
 function render() {
+  ensureRecurring(); // materialize any repeating to-dos due in the viewed week
   renderWeekLabel();
   document.querySelectorAll(".todo-list").forEach((ul) => (ul.innerHTML = ""));
 
@@ -340,9 +358,20 @@ function renderTask(id, data, uid) {
   del.type = "button";
   del.setAttribute("aria-label", "Delete to-do");
   del.textContent = "×";
-  del.addEventListener("click", () => deleteDoc(doc(db, "users", uid, "tasks", id)));
+  del.addEventListener("click", () => {
+    if (data.recurring && data.ruleId) openDeleteChoice(data);
+    else deleteDoc(doc(db, "users", uid, "tasks", id));
+  });
 
-  li.append(box, span, del);
+  if (data.recurring) {
+    const badge = document.createElement("span");
+    badge.className = "todo-badge";
+    badge.textContent = "🔁";
+    badge.title = "Repeating to-do";
+    li.append(box, span, badge, del);
+  } else {
+    li.append(box, span, del);
+  }
   list.appendChild(li);
 }
 
@@ -353,4 +382,298 @@ function addTask(day, text) {
   return addDoc(collection(db, "users", currentUid, "tasks"), {
     text, done: false, day, weekStart, createdAt: serverTimestamp(),
   });
+}
+
+// ─────────────────────────────────────────────────────────────────────────────
+//  Recurring (repeating) to-dos
+//
+//  Rules live in users/{uid}/recurringRules. For whichever week is on screen we
+//  materialize the due occurrences as normal task docs with deterministic ids
+//  (rec_{ruleId}_{YYYY-MM-DD}) so checkboxes, editing, deletion, and the day-
+//  complete celebration all work with no special cases. Generation is idempotent
+//  (skips ids that already exist and dates the user removed), so re-renders and
+//  week navigation never create duplicates.
+// ─────────────────────────────────────────────────────────────────────────────
+
+function ymd(date) {
+  const mm = String(date.getMonth() + 1).padStart(2, "0");
+  const dd = String(date.getDate()).padStart(2, "0");
+  return `${date.getFullYear()}-${mm}-${dd}`;
+}
+function weekdayKeyOfDate(date) {
+  return WEEKDAY_KEYS[(date.getDay() + 6) % 7]; // Monday-first index
+}
+function datesInWeek(weekStart) {
+  const monday = keyToDate(weekStart);
+  return Array.from({ length: 7 }, (_, i) => addDays(monday, i));
+}
+function weeksBetween(anchorMondayKey, weekStartKey) {
+  return Math.round((keyToDate(weekStartKey) - keyToDate(anchorMondayKey)) / (7 * 86400000));
+}
+
+function ruleMatchesDate(rule, date) {
+  const dkey = ymd(date);
+  if (rule.startDate && dkey < rule.startDate) return false;
+  if (rule.endDate && dkey >= rule.endDate) return false;
+  if (rule.skip && rule.skip[dkey]) return false;
+  switch (rule.freq) {
+    case "daily":
+      return true;
+    case "weekly":
+      return (rule.weekdays || []).includes(weekdayKeyOfDate(date));
+    case "fortnightly": {
+      if (!(rule.weekdays || []).includes(weekdayKeyOfDate(date))) return false;
+      const anchor = rule.anchorMonday || rule.startDate || currentWeekStart;
+      const wk = weeksBetween(anchor, mondayKey(date));
+      return (((wk % 2) + 2) % 2) === 0; // same fortnightly phase as the anchor week
+    }
+    case "monthly":
+      return date.getDate() === rule.dayOfMonth;
+    case "yearly":
+      return (date.getMonth() + 1) === rule.month && date.getDate() === rule.dayOfMonth;
+    default:
+      return false;
+  }
+}
+
+// Create any missing occurrences for the week currently being viewed.
+function ensureRecurring() {
+  if (!currentUid || !fb || !recurringRules.length) return;
+  const { db, doc, setDoc, serverTimestamp } = fb;
+  const existing = new Set(allTasks.map((t) => t.id));
+
+  for (const rule of recurringRules) {
+    for (const date of datesInWeek(currentWeekStart)) {
+      if (!ruleMatchesDate(rule, date)) continue;
+      const dkey = ymd(date);
+      const id = `rec_${rule.id}_${dkey}`;
+      if (existing.has(id)) continue;
+
+      const day = weekdayKeyOfDate(date);
+      const fields = {
+        text: rule.text, done: false, day, weekStart: mondayKey(date),
+        ruleId: rule.id, recurring: true, recurDate: dkey,
+      };
+      // Optimistically cache so this render shows it now; persist in the background.
+      allTasks.push({ id, ...fields });
+      existing.add(id);
+      setDoc(doc(db, "users", currentUid, "tasks", id), { ...fields, createdAt: serverTimestamp() })
+        .catch((err) => console.error(err));
+    }
+  }
+}
+
+function listenToRules(uid) {
+  if (unsubRules) unsubRules();
+  const { db, collection, onSnapshot } = fb;
+  unsubRules = onSnapshot(collection(db, "users", uid, "recurringRules"), (snap) => {
+    recurringRules = snap.docs.map((d) => ({ id: d.id, ...d.data() }));
+    render(); // render() calls ensureRecurring() first
+  });
+}
+
+// ── Recurring: management modal ───────────────────────────────────────────────
+function wireRecurring() {
+  // Weekday chips + month options (built once).
+  const chips = $("weekday-chips");
+  chips.innerHTML = WEEKDAY_KEYS
+    .map((k) => `<button type="button" class="wchip" data-wd="${k}">${WEEKDAY_SHORT[k]}</button>`)
+    .join("");
+  chips.querySelectorAll(".wchip").forEach((btn) => {
+    btn.addEventListener("click", () => {
+      const k = btn.dataset.wd;
+      if (selectedWeekdays.has(k)) { selectedWeekdays.delete(k); btn.classList.remove("on"); }
+      else { selectedWeekdays.add(k); btn.classList.add("on"); }
+    });
+  });
+  $("rule-month").innerHTML = MONTHS.map((m, i) => `<option value="${i + 1}">${m}</option>`).join("");
+
+  // Frequency segmented control.
+  $("freq-toggle").querySelectorAll(".freq").forEach((btn) => {
+    btn.addEventListener("click", () => {
+      ruleFreq = btn.dataset.freq;
+      $("freq-toggle").querySelectorAll(".freq").forEach((b) => b.classList.toggle("active", b === btn));
+      updateFreqSubforms();
+    });
+  });
+
+  $("recurring-btn").onclick = openRecurringModal;
+  $("recurring-close").onclick = () => ($("recurring").hidden = true);
+  $("recurring").addEventListener("click", (e) => { if (e.target.id === "recurring") $("recurring").hidden = true; });
+  $("rule-form").addEventListener("submit", (e) => { e.preventDefault(); createRule(); });
+
+  // Delete-choice modal.
+  $("recur-delete-close").onclick = closeDeleteChoice;
+  $("recur-delete").addEventListener("click", (e) => { if (e.target.id === "recur-delete") closeDeleteChoice(); });
+  $("recur-delete").querySelectorAll("[data-mode]").forEach((btn) => {
+    btn.addEventListener("click", () => applyDelete(btn.dataset.mode));
+  });
+}
+
+function updateFreqSubforms() {
+  $("sub-weekdays").hidden = !(ruleFreq === "weekly" || ruleFreq === "fortnightly");
+  $("sub-monthly").hidden = ruleFreq !== "monthly";
+  $("sub-yearly").hidden = ruleFreq !== "yearly";
+}
+
+function openRecurringModal() {
+  renderRulesList();
+  $("rule-text").value = "";
+  ruleFreq = "daily";
+  $("freq-toggle").querySelectorAll(".freq").forEach((b) => b.classList.toggle("active", b.dataset.freq === "daily"));
+  selectedWeekdays = new Set();
+  $("weekday-chips").querySelectorAll(".wchip").forEach((b) => b.classList.remove("on"));
+  $("rule-dom").value = 1;
+  $("rule-yday").value = 1;
+  $("rule-month").value = 1;
+  $("rule-error").hidden = true;
+  updateFreqSubforms();
+  $("recurring").hidden = false;
+}
+
+function describeRule(rule) {
+  const days = (rule.weekdays || []).map((k) => WEEKDAY_SHORT[k]).join(", ");
+  switch (rule.freq) {
+    case "daily":       return "Every day";
+    case "weekly":      return `Weekly · ${days}`;
+    case "fortnightly": return `Fortnightly · ${days}`;
+    case "monthly":     return `Monthly · day ${rule.dayOfMonth}`;
+    case "yearly":      return `Yearly · ${MONTHS[(rule.month || 1) - 1]} ${rule.dayOfMonth}`;
+    default:            return "";
+  }
+}
+
+function renderRulesList() {
+  const wrap = $("rules-list");
+  wrap.innerHTML = "";
+  if (!recurringRules.length) {
+    const p = document.createElement("p");
+    p.className = "rules-empty";
+    p.textContent = "No repeating to-dos yet — add one below.";
+    wrap.appendChild(p);
+    return;
+  }
+  for (const rule of recurringRules) {
+    const row = document.createElement("div");
+    row.className = "rule-row";
+
+    const info = document.createElement("div");
+    info.className = "rule-info";
+    const t = document.createElement("span");
+    t.className = "rule-row-text";
+    t.textContent = rule.text;
+    const f = document.createElement("span");
+    f.className = "rule-row-freq";
+    f.textContent = describeRule(rule);
+    info.append(t, f);
+
+    const del = document.createElement("button");
+    del.className = "rule-del";
+    del.type = "button";
+    del.setAttribute("aria-label", "Delete this repeating to-do");
+    del.textContent = "×";
+    del.addEventListener("click", () => deleteSeries(rule));
+
+    row.append(info, del);
+    wrap.appendChild(row);
+  }
+}
+
+function clampInt(v, lo, hi) {
+  const n = parseInt(v, 10);
+  if (Number.isNaN(n)) return null;
+  return Math.min(hi, Math.max(lo, n));
+}
+function showRuleError(msg) {
+  const e = $("rule-error");
+  e.textContent = msg;
+  e.hidden = false;
+}
+
+async function createRule() {
+  if (!currentUid) return;
+  const text = $("rule-text").value.trim();
+  if (!text) return showRuleError("Please enter a to-do.");
+
+  const rule = {
+    text,
+    freq: ruleFreq,
+    startDate: ymd(new Date()),
+    anchorMonday: mondayKey(new Date()),
+    createdAt: fb.serverTimestamp(),
+  };
+  if (ruleFreq === "weekly" || ruleFreq === "fortnightly") {
+    if (!selectedWeekdays.size) return showRuleError("Pick at least one day of the week.");
+    rule.weekdays = [...selectedWeekdays];
+  } else if (ruleFreq === "monthly") {
+    const dom = clampInt($("rule-dom").value, 1, 31);
+    if (!dom) return showRuleError("Enter a day of the month (1–31).");
+    rule.dayOfMonth = dom;
+  } else if (ruleFreq === "yearly") {
+    rule.month = clampInt($("rule-month").value, 1, 12);
+    const dom = clampInt($("rule-yday").value, 1, 31);
+    if (!dom) return showRuleError("Enter a day (1–31).");
+    rule.dayOfMonth = dom;
+  }
+
+  const { db, collection, addDoc } = fb;
+  try {
+    await addDoc(collection(db, "users", currentUid, "recurringRules"), rule);
+    $("recurring").hidden = true; // rules snapshot → ensureRecurring → render
+  } catch (err) {
+    console.error(err);
+    showRuleError("Couldn't save that. Please try again.");
+  }
+}
+
+// Delete the whole series (rule + every generated occurrence).
+async function deleteSeries(rule) {
+  const { db, doc, deleteDoc } = fb;
+  // Drop from the cache first so a delete's snapshot can't regenerate it.
+  recurringRules = recurringRules.filter((r) => r.id !== rule.id);
+  const gone = allTasks.filter((t) => t.ruleId === rule.id);
+  await Promise.all(gone.map((t) => deleteDoc(doc(db, "users", currentUid, "tasks", t.id)).catch(() => {})));
+  await deleteDoc(doc(db, "users", currentUid, "recurringRules", rule.id)).catch((e) => console.error(e));
+  renderRulesList();
+}
+
+// ── Recurring: per-occurrence delete choice ──────────────────────────────────
+function openDeleteChoice(task) {
+  pendingDelete = task;
+  $("recur-delete-text").textContent = `“${task.text}” is a repeating to-do. How much would you like to remove?`;
+  $("recur-delete").hidden = false;
+}
+function closeDeleteChoice() {
+  $("recur-delete").hidden = true;
+  pendingDelete = null;
+}
+
+async function applyDelete(mode) {
+  const task = pendingDelete;
+  if (!task) return;
+  const { db, doc, deleteDoc, updateDoc } = fb;
+  const ruleRef = doc(db, "users", currentUid, "recurringRules", task.ruleId);
+  const rule = recurringRules.find((r) => r.id === task.ruleId);
+
+  try {
+    if (mode === "one") {
+      // Cache the skip first so the deletion's snapshot doesn't regenerate it.
+      if (rule) rule.skip = { ...(rule.skip || {}), [task.recurDate]: true };
+      if (rule) await updateDoc(ruleRef, { [`skip.${task.recurDate}`]: true });
+      await deleteDoc(doc(db, "users", currentUid, "tasks", task.id));
+    } else if (mode === "future") {
+      if (rule) rule.endDate = task.recurDate; // stop regeneration from here on, now
+      if (rule) await updateDoc(ruleRef, { endDate: task.recurDate });
+      const gone = allTasks.filter((t) => t.ruleId === task.ruleId && t.recurDate && t.recurDate >= task.recurDate);
+      await Promise.all(gone.map((t) => deleteDoc(doc(db, "users", currentUid, "tasks", t.id)).catch(() => {})));
+    } else if (mode === "series") {
+      recurringRules = recurringRules.filter((r) => r.id !== task.ruleId); // stop regeneration now
+      const gone = allTasks.filter((t) => t.ruleId === task.ruleId);
+      await Promise.all(gone.map((t) => deleteDoc(doc(db, "users", currentUid, "tasks", t.id)).catch(() => {})));
+      if (rule) await deleteDoc(ruleRef).catch((e) => console.error(e));
+    }
+  } catch (err) {
+    console.error(err);
+  }
+  closeDeleteChoice();
 }
