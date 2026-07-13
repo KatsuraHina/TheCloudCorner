@@ -35,7 +35,6 @@
     <!-- ===== Bookshelf view ===== -->
     <section id="bookshelf-view">
       <h1 class="page-title">Our Albums</h1>
-      <p class="albums-sub">A little shelf of our memories. Tap an album to open it ☁️</p>
       <div class="shelf-grid" id="shelf-grid">
         <!-- album cards + "new album" card injected by albums.js -->
       </div>
@@ -52,7 +51,7 @@
           <button class="pill-btn pill-danger" id="delete-album-btn" type="button" hidden>🗑 Delete album</button>
         </div>
       </div>
-      <p class="gallery-empty" id="gallery-empty" hidden>No photos or videos yet — tap <strong>Upload</strong> to add the first one ☁️</p>
+      <p class="gallery-empty" id="gallery-empty" hidden>No photos or videos yet.</p>
       <div id="masonry" class="masonry-wrapper"></div>
     </section>
   </main>
@@ -64,11 +63,11 @@
       <h2 id="create-title" class="modal-title">New album</h2>
       <label class="field">
         <span>Album name</span>
-        <input id="create-name" type="text" placeholder="e.g. Our first trip" maxlength="80" />
+        <input id="create-name" type="text" maxlength="80" />
       </label>
       <label class="field">
-        <span>A little letter (optional)</span>
-        <textarea id="create-letter" rows="4" placeholder="Write a note to go with this album…"></textarea>
+        <span>Letter (optional)</span>
+        <textarea id="create-letter" rows="4"></textarea>
       </label>
       <button class="primary-btn" id="create-submit" type="button">Create album</button>
     </div>
@@ -95,8 +94,8 @@
       <button class="modal-close" data-close="caption-modal" type="button" aria-label="Close">×</button>
       <h2 class="modal-title" id="caption-modal-title">Caption</h2>
       <label class="field">
-        <span>Write a little something for this memory</span>
-        <textarea id="caption-input" rows="3" maxlength="280" placeholder="e.g. Best bibimbap ever 🍲"></textarea>
+        <span>Caption</span>
+        <textarea id="caption-input" rows="3" maxlength="280"></textarea>
       </label>
       <div class="modal-actions">
         <button class="pill-btn" id="caption-cancel" type="button">Cancel</button>
