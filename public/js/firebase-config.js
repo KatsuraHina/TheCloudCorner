@@ -33,5 +33,5 @@ export const isConfigured = !Object.values(firebaseConfig).some((v) =>
 //  Firebase console → Project settings → Cloud Messaging → "Web Push
 //  certificates" → Generate key pair → copy the key string here.
 //  It is a PUBLIC key (safe to commit), like the apiKey above.
-export const vapidKey = "REPLACE_WITH_VAPID_KEY";
+export const vapidKey = "BGQxwNfCrzJ-4Q6FOC7snprKH4OfjgK-sg7fhLdjZMaIrrvbQzQeIxKoA0GooDP736I_BTBKf9iakB0CUHkUtCU";
 export const pushConfigured = !vapidKey.includes("REPLACE_WITH");
