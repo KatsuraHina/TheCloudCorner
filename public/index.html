@@ -18,6 +18,7 @@
     </div>
     <div class="topbar-right">
       <a href="albums.html" class="ghost-btn topbar-link">📸 Albums</a>
+      <button id="reminders-btn" class="ghost-btn topbar-link" type="button" hidden>🔔 Reminders</button>
       <span id="user-chip" class="user-chip" hidden></span>
       <button id="signout-btn" class="ghost-btn" hidden>Sign out</button>
     </div>
@@ -185,6 +186,25 @@
         <button type="button" class="ghost-btn" data-mode="one">Just this one</button>
         <button type="button" class="ghost-btn" data-mode="future">This &amp; all future</button>
         <button type="button" class="ghost-btn danger" data-mode="series">Entire series</button>
+      </div>
+    </div>
+  </div>
+
+  <!-- ===== Daily reminder (push) modal ===== -->
+  <div id="reminders" class="rmodal" hidden>
+    <div class="rmodal-card rmodal-sm" role="dialog" aria-modal="true" aria-labelledby="reminders-title">
+      <button id="reminders-close" class="rmodal-close" type="button" aria-label="Close">×</button>
+      <h2 id="reminders-title" class="rmodal-title">🔔 Daily reminder</h2>
+      <p class="reminders-intro">Get a nudge on your phone or desktop if you still have
+        unfinished to-dos for the day — even when the site is closed.</p>
+      <label class="field">
+        <span>Remind me at</span>
+        <select id="reminder-hour"></select>
+      </label>
+      <p id="reminders-status" class="reminders-status" hidden></p>
+      <div class="reminders-actions">
+        <button type="button" class="primary-btn" id="reminders-enable">Enable reminders</button>
+        <button type="button" class="ghost-btn" id="reminders-disable" hidden>Turn off on this device</button>
       </div>
     </div>
   </div>

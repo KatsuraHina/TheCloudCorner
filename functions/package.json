@@ -1,0 +1,13 @@
+{
+  "name": "thecloudcorner-functions",
+  "description": "Cloud Functions for The Cloud Corner — daily unfinished-to-do reminders",
+  "private": true,
+  "engines": {
+    "node": "20"
+  },
+  "main": "index.js",
+  "dependencies": {
+    "firebase-admin": "^12.6.0",
+    "firebase-functions": "^6.1.0"
+  }
+}

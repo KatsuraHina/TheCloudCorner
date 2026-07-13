@@ -462,3 +462,12 @@ body {
 .recur-delete-actions .ghost-btn:hover { background: #e4f1fa; }
 .recur-delete-actions .ghost-btn.danger { color: #c25a6c; }
 .recur-delete-actions .ghost-btn.danger:hover { background: #ffe6ea; }
+
+/* Daily reminder modal */
+.reminders-intro { color: var(--ink); line-height: 1.5; margin: 0 0 16px; }
+.reminders-status { color: var(--blue-ink); background: var(--cloud-soft);
+  border-radius: 10px; padding: 9px 12px; margin: 4px 0 0; font-size: 0.9rem; }
+.reminders-actions { display: flex; flex-direction: column; gap: 8px; margin-top: 16px; }
+.reminders-actions .primary-btn { margin-top: 0; }
+.reminders-actions .ghost-btn { background: var(--cloud-soft); text-align: center; padding: 10px; }
+.reminders-actions .ghost-btn:hover { background: #e4f1fa; }

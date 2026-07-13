@@ -78,6 +78,7 @@ startClock();
 renderWeekLabel();
 wireCelebrate();
 wireRecurring();
+wireReminders();
 $("welcome-name").textContent = "friend";
 
 if (!isConfigured) {
@@ -124,6 +125,7 @@ function bootForUser(user) {
   const signoutBtn = $("signout-btn");
   signoutBtn.hidden = false;
   signoutBtn.onclick = () => fb.signOut(fb.auth);
+  $("reminders-btn").hidden = false;
 
   setupWeekNav();
   listenToTasks(user.uid);
@@ -676,4 +678,118 @@ async function applyDelete(mode) {
     console.error(err);
   }
   closeDeleteChoice();
+}
+
+// ─────────────────────────────────────────────────────────────────────────────
+//  Daily reminder (Web Push) — opt-in UI. The actual send happens server-side
+//  in functions/index.js; this just lets a signed-in user turn it on/off and
+//  pick the hour. push.js is imported lazily (only when the modal is used) so
+//  the messaging SDK isn't loaded for everyone.
+// ─────────────────────────────────────────────────────────────────────────────
+function wireReminders() {
+  const sel = $("reminder-hour");
+  if (sel) {
+    sel.innerHTML = Array.from({ length: 24 }, (_, h) => {
+      const label = new Date(2000, 0, 1, h).toLocaleTimeString(undefined, { hour: "numeric" });
+      return `<option value="${h}">${label}</option>`;
+    }).join("");
+    sel.value = "20"; // default 8pm
+  }
+
+  const btn = $("reminders-btn");
+  if (btn) btn.onclick = openReminders;
+  $("reminders-close").onclick = () => ($("reminders").hidden = true);
+  $("reminders").addEventListener("click", (e) => { if (e.target.id === "reminders") $("reminders").hidden = true; });
+  $("reminders-enable").onclick = enableRemindersClick;
+  $("reminders-disable").onclick = disableRemindersClick;
+}
+
+async function openReminders() {
+  try {
+    const { reminderPermission } = await import("./push.js");
+    reflectReminderState(reminderPermission());
+  } catch (e) {
+    console.error(e);
+  }
+  $("reminders").hidden = false;
+}
+
+function setReminderMessage(msg) {
+  const s = $("reminders-status");
+  s.textContent = msg;
+  s.hidden = false;
+}
+
+function reflectReminderState(perm) {
+  const status = $("reminders-status");
+  const enableBtn = $("reminders-enable");
+  const disableBtn = $("reminders-disable");
+  status.hidden = true;
+  disableBtn.hidden = true;
+  enableBtn.disabled = false;
+
+  if (perm === "granted") {
+    enableBtn.textContent = "Update time";
+    disableBtn.hidden = false;
+  } else if (perm === "denied") {
+    enableBtn.textContent = "Enable reminders";
+    setReminderMessage("Notifications are blocked for this site in your browser settings — allow them, then try again.");
+  } else if (perm === "unsupported") {
+    enableBtn.textContent = "Enable reminders";
+    enableBtn.disabled = true;
+    setReminderMessage("This browser doesn't support push notifications.");
+  } else {
+    enableBtn.textContent = "Enable reminders";
+  }
+}
+
+function reminderReasonMessage(reason) {
+  switch (reason) {
+    case "no-vapid":    return "Reminders aren't fully set up yet (missing web-push key).";
+    case "unsupported": return "This browser doesn't support push notifications.";
+    case "denied":      return "You blocked notifications — allow them in your browser's site settings, then try again.";
+    case "dismissed":   return "Permission was dismissed. Tap Enable and choose Allow.";
+    default:            return "Couldn't set up reminders. Please try again.";
+  }
+}
+
+async function enableRemindersClick() {
+  if (!currentUid) return;
+  const hour = parseInt($("reminder-hour").value, 10);
+  const btn = $("reminders-enable");
+  btn.disabled = true;
+  try {
+    const push = await import("./push.js");
+    if (push.reminderPermission() === "granted") {
+      await push.updateReminderHour(currentUid, hour);
+      setReminderMessage("Saved — reminder time updated. ✓");
+      reflectReminderState("granted");
+    } else {
+      const res = await push.enableReminders(currentUid, hour);
+      if (res.ok) {
+        reflectReminderState("granted");
+        setReminderMessage("Reminders are on. You'll get a nudge if the day isn't finished. ✓");
+      } else {
+        reflectReminderState(res.reason === "denied" ? "denied" : "default");
+        setReminderMessage(reminderReasonMessage(res.reason));
+      }
+    }
+  } catch (err) {
+    console.error(err);
+    setReminderMessage("Something went wrong. Please try again.");
+  } finally {
+    btn.disabled = false;
+  }
+}
+
+async function disableRemindersClick() {
+  if (!currentUid) return;
+  try {
+    const push = await import("./push.js");
+    await push.disableReminders(currentUid);
+  } catch (err) {
+    console.error(err);
+  }
+  reflectReminderState("default");
+  setReminderMessage("Turned off on this device.");
 }

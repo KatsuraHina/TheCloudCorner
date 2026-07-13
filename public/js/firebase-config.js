@@ -27,3 +27,11 @@ export const firebaseConfig = {
 export const isConfigured = !Object.values(firebaseConfig).some((v) =>
   String(v).includes("REPLACE_ME")
 );
+
+// ── Web Push (reminders) ──────────────────────────────────────────────────────
+//  Needed only for the "unfinished to-dos" push notifications. Get it from:
+//  Firebase console → Project settings → Cloud Messaging → "Web Push
+//  certificates" → Generate key pair → copy the key string here.
+//  It is a PUBLIC key (safe to commit), like the apiKey above.
+export const vapidKey = "REPLACE_WITH_VAPID_KEY";
+export const pushConfigured = !vapidKey.includes("REPLACE_WITH");
