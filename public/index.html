@@ -93,15 +93,39 @@
 
     <div class="cloud-divider" aria-hidden="true"></div>
 
-    <!-- ===== Week navigation ===== -->
-    <nav class="week-nav">
-      <button id="week-prev" class="week-arrow" type="button" aria-label="Previous week">‹</button>
-      <button id="week-label" class="week-label" type="button" title="Jump to this week">This week</button>
-      <button id="week-next" class="week-arrow" type="button" aria-label="Next week">›</button>
+    <!-- ===== Calendar navigation ===== -->
+    <nav class="cal-nav">
+      <div class="view-toggle" role="tablist">
+        <button id="view-month" class="tab active" type="button" role="tab">Month</button>
+        <button id="view-week" class="tab" type="button" role="tab">Week</button>
+      </div>
+      <div class="cal-nav-middle">
+        <button id="cal-prev" class="week-arrow" type="button" aria-label="Previous">‹</button>
+        <button id="cal-label" class="week-label" type="button" title="Jump to today">…</button>
+        <button id="cal-next" class="week-arrow" type="button" aria-label="Next">›</button>
+      </div>
+      <button id="cal-today" class="today-btn" type="button">Today</button>
     </nav>
 
+    <!-- ===== Month calendar view ===== -->
+    <section id="month-view" class="month-layout" hidden>
+      <div class="month-cal">
+        <div class="month-head" id="month-head"><!-- weekday headers injected --></div>
+        <div class="month-grid" id="month-grid"><!-- date cells injected --></div>
+      </div>
+      <aside class="month-master">
+        <section class="day-col master-col">
+          <header class="day-head"><span class="callout-icon">☁️</span>Master to-do list</header>
+          <ul class="todo-list" id="month-master-list"></ul>
+          <form class="add-form" id="month-master-form">
+            <input type="text" class="add-input" placeholder="+ add to-do" aria-label="Add to-do for Master list" />
+          </form>
+        </section>
+      </aside>
+    </section>
+
     <!-- ===== Weekly to-do grid ===== -->
-    <section class="week-grid" id="week-grid">
+    <section class="week-grid" id="week-grid" hidden>
       <!-- day columns injected by planner.js -->
     </section>
 
@@ -124,6 +148,18 @@
       <h2 id="celebrate-title" class="celebrate-title">Day complete!</h2>
       <p id="celebrate-quote" class="celebrate-quote"></p>
       <p id="celebrate-movie" class="celebrate-movie"></p>
+    </div>
+  </div>
+
+  <!-- ===== Day panel (calendar) ===== -->
+  <div id="day-modal" class="rmodal" hidden>
+    <div class="rmodal-card rmodal-sm" role="dialog" aria-modal="true" aria-labelledby="day-modal-title">
+      <button id="day-modal-close" class="rmodal-close" type="button" aria-label="Close">×</button>
+      <h2 id="day-modal-title" class="rmodal-title">…</h2>
+      <ul class="todo-list day-panel-list" id="day-modal-list"></ul>
+      <form class="add-form" id="day-modal-form">
+        <input type="text" class="add-input" placeholder="+ add to-do" aria-label="Add to-do for this day" />
+      </form>
     </div>
   </div>
 

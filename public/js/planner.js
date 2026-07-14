@@ -32,8 +32,18 @@ let currentUid = null;
 let unsubTasks = null;
 let allTasks = [];                              // cached snapshot of every task
 let currentWeekStart = mondayKey(new Date());   // "YYYY-MM-DD" of the viewed week's Monday
-const celebratedKeys = new Set();               // columns already shown as complete
-let lastRenderWeek = null;                       // for suppressing popups on load / week switch
+const celebratedKeys = new Set();               // columns/dates already shown as complete
+let lastRenderScope = null;                     // suppresses popups on load / view or period switch
+
+// ── Calendar view state ───────────────────────────────────────────────────────
+// "month" shows a full calendar grid; "week" is the original Mon–Sun columns.
+let viewMode = (() => {
+  try { return localStorage.getItem("cloudcorner-view") === "week" ? "week" : "month"; }
+  catch { return "month"; }
+})();
+let monthCursor = startOfMonth(new Date());     // first day of the viewed month
+let openDayDate = null;                         // "YYYY-MM-DD" while the day panel is open
+let dragTaskId = null;                          // task being dragged between dates
 
 // ── Recurring (repeating) to-dos ──────────────────────────────────────────────
 let unsubRules = null;
@@ -75,11 +85,13 @@ function addDays(date, n) {
 // ── Build the shell while it's still hidden behind the loader ────────────────
 buildSkeleton();
 startClock();
-renderWeekLabel();
+wireCalendar();
 wireCelebrate();
 wireRecurring();
 wireReminders();
 $("welcome-name").textContent = "friend";
+// (an initial render() runs at the very end of this module, after every
+// declaration it depends on has been evaluated)
 
 if (!isConfigured) {
   // No auth to wait for in preview mode — show the layout straight away.
@@ -127,20 +139,68 @@ function bootForUser(user) {
   signoutBtn.onclick = () => fb.signOut(fb.auth);
   $("reminders-btn").hidden = false;
 
-  setupWeekNav();
   listenToTasks(user.uid);
   listenToRules(user.uid);
 }
 
-// ── Week navigation ──────────────────────────────────────────────────────────
-function setupWeekNav() {
-  $("week-prev").onclick = () => shiftWeek(-7);
-  $("week-next").onclick = () => shiftWeek(7);
-  $("week-label").onclick = () => {
-    currentWeekStart = mondayKey(new Date());
+// ── Calendar navigation (shared by Month and Week views) ─────────────────────
+function wireCalendar() {
+  $("view-month").onclick = () => setViewMode("month");
+  $("view-week").onclick = () => setViewMode("week");
+  $("cal-prev").onclick = () => shiftPeriod(-1);
+  $("cal-next").onclick = () => shiftPeriod(1);
+  $("cal-today").onclick = goToday;
+  $("cal-label").onclick = goToday;
+
+  // Day panel.
+  $("day-modal-close").onclick = closeDayPanel;
+  $("day-modal").addEventListener("click", (e) => { if (e.target.id === "day-modal") closeDayPanel(); });
+  $("day-modal-form").addEventListener("submit", (e) => {
+    e.preventDefault();
+    const input = e.target.querySelector(".add-input");
+    const text = input.value.trim();
+    if (text && currentUid && openDayDate) addTaskOnDate(openDayDate, text);
+    input.value = "";
+  });
+
+  // Master list add form in the month view.
+  $("month-master-form").addEventListener("submit", (e) => {
+    e.preventDefault();
+    const input = e.target.querySelector(".add-input");
+    const text = input.value.trim();
+    if (text && currentUid) addTask("master", text);
+    input.value = "";
+  });
+
+  syncViewVisibility();
+}
+
+function setViewMode(mode) {
+  viewMode = mode;
+  try { localStorage.setItem("cloudcorner-view", mode); } catch { /* private mode */ }
+  render();
+}
+
+function syncViewVisibility() {
+  $("view-month").classList.toggle("active", viewMode === "month");
+  $("view-week").classList.toggle("active", viewMode === "week");
+  $("month-view").hidden = viewMode !== "month";
+  $("week-grid").hidden = viewMode !== "week";
+}
+
+function shiftPeriod(dir) {
+  if (viewMode === "month") {
+    monthCursor = new Date(monthCursor.getFullYear(), monthCursor.getMonth() + dir, 1);
     render();
-  };
-  renderWeekLabel();
+  } else {
+    shiftWeek(dir * 7);
+  }
+}
+
+function goToday() {
+  monthCursor = startOfMonth(new Date());
+  currentWeekStart = mondayKey(new Date());
+  render();
 }
 
 function shiftWeek(days) {
@@ -148,7 +208,22 @@ function shiftWeek(days) {
   render();
 }
 
-function renderWeekLabel() {
+function startOfMonth(d) {
+  return new Date(d.getFullYear(), d.getMonth(), 1);
+}
+
+function renderCalLabel() {
+  const label = $("cal-label");
+  if (!label) return;
+  if (viewMode === "month") {
+    const now = new Date();
+    const isCurrent =
+      monthCursor.getFullYear() === now.getFullYear() && monthCursor.getMonth() === now.getMonth();
+    label.textContent = monthCursor.toLocaleDateString(undefined, { month: "long", year: "numeric" });
+    label.classList.toggle("is-current", isCurrent);
+    return;
+  }
+
   const monday = keyToDate(currentWeekStart);
   const sunday = addDays(monday, 6);
   const thisWeek = mondayKey(new Date());
@@ -161,7 +236,6 @@ function renderWeekLabel() {
   else if (diffWeeks === 1) title = "Next week";
   else if (diffWeeks === -1) title = "Last week";
 
-  const label = $("week-label");
   label.innerHTML = `${title}<span class="week-sub">${fmt(monday)} – ${fmt(sunday)}</span>`;
   label.classList.toggle("is-current", diffWeeks === 0);
 }
@@ -240,10 +314,22 @@ function migrateLegacyTasks(uid) {
   }
 }
 
+function byCreated(a, b) {
+  return (a.createdAt?.seconds || 0) - (b.createdAt?.seconds || 0);
+}
+
 function render() {
-  ensureRecurring(); // materialize any repeating to-dos due in the viewed week
-  renderWeekLabel();
-  document.querySelectorAll(".todo-list").forEach((ul) => (ul.innerHTML = ""));
+  ensureRecurring(); // materialize repeating to-dos due in the visible period
+  renderCalLabel();
+  syncViewVisibility();
+  if (viewMode === "month") renderMonth();
+  else renderWeek();
+  if (openDayDate) renderDayPanel(); // keep the open day panel in sync
+}
+
+// ── Week view (the original Mon–Sun columns) ─────────────────────────────────
+function renderWeek() {
+  document.querySelectorAll("#week-grid .todo-list").forEach((ul) => (ul.innerHTML = ""));
 
   const visible = allTasks
     .filter((t) =>
@@ -251,35 +337,198 @@ function render() {
         ? true                                   // Master list: every week
         : t.weekStart === currentWeekStart       // weekday: only the viewed week
     )
-    .sort((a, b) => (a.createdAt?.seconds || 0) - (b.createdAt?.seconds || 0));
+    .sort(byCreated);
 
   for (const t of visible) renderTask(t.id, t, currentUid);
 
-  detectCompletions(visible);
+  const groups = DAYS.map((day) => ({
+    key: day.key === "master" ? "master" : `${currentWeekStart}/${day.key}`,
+    label: day.label,
+    items: visible.filter((t) => (t.day || "master") === day.key),
+  }));
+  detectCompletions(groups, `week:${currentWeekStart}`);
 }
 
-// Show a celebration popup the moment every to-do in a column gets checked off.
-// Seeding suppresses popups on first load and when switching weeks, so only a
-// fresh user completion pops.
-function detectCompletions(visible) {
-  const seeding = lastRenderWeek !== currentWeekStart;
+// ── Month view ───────────────────────────────────────────────────────────────
+function monthGridDates(cursor) {
+  const first = startOfMonth(cursor);
+  const last = new Date(cursor.getFullYear(), cursor.getMonth() + 1, 0);
+  const end = addDays(mondayOf(last), 6);
+  const dates = [];
+  for (let d = mondayOf(first); d <= end; d = addDays(d, 1)) dates.push(d);
+  return dates; // 4–6 full Mon–Sun weeks covering the month
+}
 
-  for (const day of DAYS) {
-    const items = visible.filter((t) => (t.day || "master") === day.key);
-    const complete = items.length > 0 && items.every((t) => t.done);
-    const keyId = day.key === "master" ? "master" : `${currentWeekStart}/${day.key}`;
+// Exact date of a weekday task ("YYYY-MM-DD"), or null for master tasks.
+function taskDateKey(t) {
+  const idx = WEEKDAY_KEYS.indexOf(t.day);
+  if (idx < 0 || !t.weekStart) return null;
+  return ymd(addDays(keyToDate(t.weekStart), idx));
+}
 
-    if (complete) {
-      if (!celebratedKeys.has(keyId)) {
-        celebratedKeys.add(keyId);
-        if (!seeding) celebrate(day.label);
-      }
-    } else {
-      celebratedKeys.delete(keyId);
+const CELL_MAX = 3; // tasks shown per cell before the "+N" overflow link
+
+function renderMonth() {
+  const dates = monthGridDates(monthCursor);
+  buildMonthGrid(dates);
+
+  // Group tasks by exact date; master tasks go to the side panel.
+  const sorted = allTasks.slice().sort(byCreated);
+  const master = [];
+  const byDate = new Map();
+  for (const t of sorted) {
+    if ((t.day || "master") === "master") { master.push(t); continue; }
+    const dk = taskDateKey(t);
+    if (!dk) continue;
+    if (!byDate.has(dk)) byDate.set(dk, []);
+    byDate.get(dk).push(t);
+  }
+
+  for (const cell of $("month-grid").children) {
+    const dk = cell.dataset.date;
+    const items = byDate.get(dk) || [];
+    const list = cell.querySelector(".month-cell-list");
+    for (const t of items.slice(0, CELL_MAX)) {
+      list.appendChild(buildTaskItem(t.id, t, currentUid, { drag: true }));
+    }
+    if (items.length > CELL_MAX) {
+      const more = document.createElement("button");
+      more.className = "month-more";
+      more.type = "button";
+      more.textContent = `+${items.length - CELL_MAX} more`;
+      more.addEventListener("click", (e) => { e.stopPropagation(); openDayPanel(dk); });
+      cell.appendChild(more);
     }
   }
 
-  lastRenderWeek = currentWeekStart;
+  const ml = $("month-master-list");
+  ml.innerHTML = "";
+  for (const t of master) ml.appendChild(buildTaskItem(t.id, t, currentUid));
+
+  const groups = dates.map((d) => {
+    const dk = ymd(d);
+    return {
+      key: `date:${dk}`,
+      label: d.toLocaleDateString(undefined, { month: "short", day: "numeric" }),
+      items: byDate.get(dk) || [],
+    };
+  });
+  groups.push({ key: "master", label: "Master to-do list", items: master });
+  const monthKey = `${monthCursor.getFullYear()}-${monthCursor.getMonth() + 1}`;
+  detectCompletions(groups, `month:${monthKey}`);
+}
+
+function buildMonthGrid(dates) {
+  const head = $("month-head");
+  if (!head.childElementCount) {
+    head.innerHTML = WEEKDAY_KEYS.map((k) => `<span>${WEEKDAY_SHORT[k]}</span>`).join("");
+  }
+  const grid = $("month-grid");
+  grid.innerHTML = "";
+  const todayKey = ymd(new Date());
+
+  for (const d of dates) {
+    const dk = ymd(d);
+    const cell = document.createElement("div");
+    cell.className = "month-cell"
+      + (d.getMonth() === monthCursor.getMonth() ? "" : " is-out")
+      + (dk === todayKey ? " is-today" : "");
+    cell.dataset.date = dk;
+    cell.innerHTML = `<span class="month-daynum">${d.getDate()}</span><ul class="month-cell-list todo-list"></ul>`;
+
+    // Click anywhere in the cell (except a task's own controls) opens the day.
+    cell.addEventListener("click", (e) => {
+      if (e.target.closest(".todo-item")) return;
+      openDayPanel(dk);
+    });
+
+    // Drop target for rescheduling by drag.
+    cell.addEventListener("dragover", (e) => {
+      if (!dragTaskId) return;
+      e.preventDefault();
+      cell.classList.add("drop-over");
+    });
+    cell.addEventListener("dragleave", () => cell.classList.remove("drop-over"));
+    cell.addEventListener("drop", (e) => {
+      e.preventDefault();
+      cell.classList.remove("drop-over");
+      if (dragTaskId) moveTaskToDate(dragTaskId, dk);
+    });
+
+    grid.appendChild(cell);
+  }
+}
+
+function moveTaskToDate(id, dateKey) {
+  const t = allTasks.find((x) => x.id === id);
+  dragTaskId = null;
+  if (!t || (t.day || "master") === "master") return;
+  const date = keyToDate(dateKey);
+  const weekStart = mondayKey(date);
+  const day = weekdayKeyOfDate(date);
+  if (t.weekStart === weekStart && t.day === day) return;
+  t.weekStart = weekStart; // optimistic — render now, persist in the background
+  t.day = day;
+  render();
+  const { db, doc, updateDoc } = fb;
+  updateDoc(doc(db, "users", currentUid, "tasks", id), { weekStart, day }).catch((e) => console.error(e));
+}
+
+// ── Day panel ────────────────────────────────────────────────────────────────
+function openDayPanel(dateKey) {
+  openDayDate = dateKey;
+  renderDayPanel();
+  $("day-modal").hidden = false;
+}
+
+function renderDayPanel() {
+  const date = keyToDate(openDayDate);
+  $("day-modal-title").textContent =
+    date.toLocaleDateString(undefined, { weekday: "long", month: "long", day: "numeric" });
+  const list = $("day-modal-list");
+  list.innerHTML = "";
+  allTasks
+    .filter((t) => taskDateKey(t) === openDayDate)
+    .sort(byCreated)
+    .forEach((t) => list.appendChild(buildTaskItem(t.id, t, currentUid)));
+}
+
+function closeDayPanel() {
+  $("day-modal").hidden = true;
+  openDayDate = null;
+}
+
+function addTaskOnDate(dateKey, text) {
+  const { db, collection, addDoc, serverTimestamp } = fb;
+  const date = keyToDate(dateKey);
+  return addDoc(collection(db, "users", currentUid, "tasks"), {
+    text, done: false,
+    day: weekdayKeyOfDate(date),
+    weekStart: mondayKey(date),
+    createdAt: serverTimestamp(),
+  });
+}
+
+// Show a celebration popup the moment every to-do in a group (a day column, a
+// calendar date, or the Master list) gets checked off. Seeding suppresses
+// popups on first load and when switching views/periods, so only a fresh user
+// completion pops.
+function detectCompletions(groups, scope) {
+  const seeding = lastRenderScope !== scope;
+
+  for (const g of groups) {
+    const complete = g.items.length > 0 && g.items.every((t) => t.done);
+    if (complete) {
+      if (!celebratedKeys.has(g.key)) {
+        celebratedKeys.add(g.key);
+        if (!seeding) celebrate(g.label);
+      }
+    } else {
+      celebratedKeys.delete(g.key);
+    }
+  }
+
+  lastRenderScope = scope;
 }
 
 // ── Celebration popup ─────────────────────────────────────────────────────────
@@ -330,13 +579,27 @@ function wireCelebrate() {
   });
 }
 
-function renderTask(id, data, uid) {
-  const list = document.querySelector(`.todo-list[data-list="${data.day || "master"}"]`);
-  if (!list) return;
+// Build a to-do <li>; used by the week columns, month cells, day panel, and
+// the month master panel. opts.drag makes it draggable between calendar dates.
+function buildTaskItem(id, data, uid, opts = {}) {
   const { db, doc, updateDoc, deleteDoc } = fb;
 
   const li = document.createElement("li");
   li.className = "todo-item" + (data.done ? " done" : "");
+
+  if (opts.drag) {
+    li.draggable = true;
+    li.addEventListener("dragstart", (e) => {
+      dragTaskId = id;
+      li.classList.add("dragging");
+      e.dataTransfer.effectAllowed = "move";
+      e.dataTransfer.setData("text/plain", id);
+    });
+    li.addEventListener("dragend", () => {
+      dragTaskId = null;
+      li.classList.remove("dragging");
+    });
+  }
 
   const box = document.createElement("input");
   box.type = "checkbox";
@@ -374,7 +637,13 @@ function renderTask(id, data, uid) {
   } else {
     li.append(box, span, del);
   }
-  list.appendChild(li);
+  return li;
+}
+
+function renderTask(id, data, uid) {
+  const list = document.querySelector(`#week-grid .todo-list[data-list="${data.day || "master"}"]`);
+  if (!list) return;
+  list.appendChild(buildTaskItem(id, data, uid));
 }
 
 function addTask(day, text) {
@@ -438,29 +707,40 @@ function ruleMatchesDate(rule, date) {
   }
 }
 
-// Create any missing occurrences for the week currently being viewed.
+// Weeks on screen: the single viewed week, or every week of the month grid.
+function visibleWeekKeys() {
+  if (viewMode === "week") return [currentWeekStart];
+  const dates = monthGridDates(monthCursor);
+  const keys = [];
+  for (let i = 0; i < dates.length; i += 7) keys.push(mondayKey(dates[i]));
+  return keys;
+}
+
+// Create any missing occurrences for the visible period.
 function ensureRecurring() {
   if (!currentUid || !fb || !recurringRules.length) return;
   const { db, doc, setDoc, serverTimestamp } = fb;
   const existing = new Set(allTasks.map((t) => t.id));
 
   for (const rule of recurringRules) {
-    for (const date of datesInWeek(currentWeekStart)) {
-      if (!ruleMatchesDate(rule, date)) continue;
-      const dkey = ymd(date);
-      const id = `rec_${rule.id}_${dkey}`;
-      if (existing.has(id)) continue;
+    for (const week of visibleWeekKeys()) {
+      for (const date of datesInWeek(week)) {
+        if (!ruleMatchesDate(rule, date)) continue;
+        const dkey = ymd(date);
+        const id = `rec_${rule.id}_${dkey}`;
+        if (existing.has(id)) continue;
 
-      const day = weekdayKeyOfDate(date);
-      const fields = {
-        text: rule.text, done: false, day, weekStart: mondayKey(date),
-        ruleId: rule.id, recurring: true, recurDate: dkey,
-      };
-      // Optimistically cache so this render shows it now; persist in the background.
-      allTasks.push({ id, ...fields });
-      existing.add(id);
-      setDoc(doc(db, "users", currentUid, "tasks", id), { ...fields, createdAt: serverTimestamp() })
-        .catch((err) => console.error(err));
+        const day = weekdayKeyOfDate(date);
+        const fields = {
+          text: rule.text, done: false, day, weekStart: mondayKey(date),
+          ruleId: rule.id, recurring: true, recurDate: dkey,
+        };
+        // Optimistically cache so this render shows it now; persist in the background.
+        allTasks.push({ id, ...fields });
+        existing.add(id);
+        setDoc(doc(db, "users", currentUid, "tasks", id), { ...fields, createdAt: serverTimestamp() })
+          .catch((err) => console.error(err));
+      }
     }
   }
 }
@@ -793,3 +1073,6 @@ async function disableRemindersClick() {
   reflectReminderState("default");
   setReminderMessage("Turned off on this device.");
 }
+
+// Initial paint (safe here: every const/function above has been evaluated).
+render();

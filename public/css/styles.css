@@ -463,6 +463,91 @@ body {
 .recur-delete-actions .ghost-btn.danger { color: #c25a6c; }
 .recur-delete-actions .ghost-btn.danger:hover { background: #ffe6ea; }
 
+/* ───────────────────────────────────────────────────────────────────────────
+   Calendar (Month view + shared navigation)
+   ─────────────────────────────────────────────────────────────────────────── */
+.cal-nav {
+  display: flex; align-items: center; justify-content: center; gap: 14px;
+  flex-wrap: wrap; margin: 0 0 18px;
+}
+.view-toggle {
+  display: flex; background: var(--cloud-soft); border-radius: 999px; padding: 4px;
+}
+.view-toggle .tab { padding: 8px 18px; }
+.cal-nav-middle { display: flex; align-items: center; gap: 10px; }
+.today-btn {
+  border: none; cursor: pointer; border-radius: 999px; padding: 9px 18px;
+  background: var(--cloud); color: var(--blue-ink); box-shadow: var(--shadow-sm);
+  font-family: var(--font-head); font-weight: 600; font-size: 0.95rem;
+}
+.today-btn:hover { background: var(--cloud-soft); }
+
+/* Layout: calendar + master panel */
+.month-layout {
+  display: grid; grid-template-columns: 1fr 300px; gap: 16px; align-items: start;
+}
+.month-cal {
+  background: var(--cloud); border-radius: var(--radius);
+  padding: 14px; box-shadow: var(--shadow-sm);
+}
+.month-head {
+  display: grid; grid-template-columns: repeat(7, 1fr); gap: 6px;
+  margin-bottom: 6px; text-align: center;
+  font-family: var(--font-head); font-weight: 600; font-size: 0.8rem;
+  color: var(--blue-ink);
+}
+.month-grid { display: grid; grid-template-columns: repeat(7, 1fr); gap: 6px; }
+
+.month-cell {
+  background: var(--cloud-soft); border-radius: 10px; min-height: 96px;
+  padding: 6px; cursor: pointer; display: flex; flex-direction: column; gap: 3px;
+  min-width: 0; transition: background 0.15s;
+}
+.month-cell:hover { background: #e4f1fa; }
+.month-cell.is-out { opacity: 0.45; }
+.month-cell.is-today { outline: 2px solid var(--blue); background: #e4f1fa; }
+.month-cell.drop-over { outline: 2px dashed var(--blue-ink); background: #e4f1fa; }
+.month-daynum {
+  font-family: var(--font-head); font-weight: 600; font-size: 0.8rem;
+  color: var(--ink-soft);
+}
+.month-cell.is-today .month-daynum { color: var(--blue-ink); }
+
+.month-cell-list { list-style: none; margin: 0; padding: 0; display: flex; flex-direction: column; gap: 2px; }
+.month-cell .todo-item {
+  background: var(--cloud); border-radius: 6px; padding: 2px 4px; gap: 5px;
+  font-size: 0.76rem; cursor: grab;
+}
+.month-cell .todo-item.dragging { opacity: 0.4; }
+.month-cell .todo-box { width: 12px; height: 12px; }
+.month-cell .todo-text { white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.month-cell .todo-del { display: none; } /* delete via the day panel */
+.month-cell .todo-badge { font-size: 0.65rem; }
+.month-more {
+  border: none; background: transparent; color: var(--blue-ink); cursor: pointer;
+  font-family: var(--font-body); font-weight: 600; font-size: 0.72rem;
+  text-align: left; padding: 0 4px;
+}
+.month-more:hover { text-decoration: underline; }
+
+.month-master .day-col { min-height: 200px; }
+
+/* Day panel */
+.day-panel-list { margin-bottom: 10px; }
+.day-panel-list:empty { display: none; }
+
+@media (max-width: 880px) {
+  .month-layout { grid-template-columns: 1fr; }
+  .month-cell { min-height: 72px; padding: 4px; }
+  .month-cell .todo-item { font-size: 0.66rem; padding: 1px 3px; }
+}
+@media (max-width: 520px) {
+  .month-cal { padding: 8px; }
+  .month-grid, .month-head { gap: 3px; }
+  .month-cell { min-height: 58px; border-radius: 7px; }
+  .month-cell .todo-box { width: 10px; height: 10px; }
+}
+
 /* Daily reminder modal */
 .reminders-intro { color: var(--ink); line-height: 1.5; margin: 0 0 16px; }
 .reminders-status { color: var(--blue-ink); background: var(--cloud-soft);
