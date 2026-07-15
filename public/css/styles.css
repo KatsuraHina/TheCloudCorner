@@ -484,7 +484,7 @@ body {
 
 /* Layout: calendar + master panel */
 .month-layout {
-  display: grid; grid-template-columns: 1fr 300px; gap: 16px; align-items: start;
+  display: grid; grid-template-columns: 1fr 210px; gap: 14px; align-items: start;
 }
 .month-cal {
   background: var(--cloud); border-radius: var(--radius);
@@ -530,7 +530,9 @@ body {
 }
 .month-more:hover { text-decoration: underline; }
 
-.month-master .day-col { min-height: 200px; }
+.month-master .day-col { min-height: 120px; padding: 10px 10px 8px; }
+.month-master .day-head { font-size: 0.88rem; }
+.month-master .add-input { font-size: 0.85rem; padding: 6px 8px; }
 
 /* Day panel */
 .day-panel-list { margin-bottom: 10px; }

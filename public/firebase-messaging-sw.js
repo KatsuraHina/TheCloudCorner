@@ -43,3 +43,67 @@ self.addEventListener("notificationclick", (event) => {
     })
   );
 });
+
+/* ── PWA app shell ───────────────────────────────────────────────────────────
+ * Network-first with cache fallback: deploys show up immediately when online,
+ * and the installed app still opens when offline. Bump CACHE on shape changes.
+ */
+const CACHE = "cloudcorner-shell-v1";
+const SHELL = [
+  "/",
+  "/index.html",
+  "/login.html",
+  "/albums.html",
+  "/manifest.webmanifest",
+  "/css/styles.css",
+  "/css/albums.css",
+  "/js/planner.js",
+  "/js/auth.js",
+  "/js/albums.js",
+  "/js/clock.js",
+  "/js/quotes.js",
+  "/js/push.js",
+  "/js/firebase-config.js",
+  "/js/firebase-init.js",
+  "/assets/favicon.svg",
+  "/assets/decor.svg",
+  "/assets/icon-192.png",
+  "/assets/icon-512.png",
+];
+
+self.addEventListener("install", (event) => {
+  event.waitUntil(
+    caches.open(CACHE).then((c) => c.addAll(SHELL)).then(() => self.skipWaiting())
+  );
+});
+
+self.addEventListener("activate", (event) => {
+  event.waitUntil(
+    caches.keys().then((keys) =>
+      Promise.all(keys.filter((k) => k.startsWith("cloudcorner-shell-") && k !== CACHE)
+        .map((k) => caches.delete(k)))
+    ).then(() => self.clients.claim())
+  );
+});
+
+self.addEventListener("fetch", (event) => {
+  const url = new URL(event.request.url);
+  // Only same-origin GETs: Firebase/Google APIs must always hit the network.
+  if (event.request.method !== "GET" || url.origin !== self.location.origin) return;
+
+  event.respondWith(
+    fetch(event.request)
+      .then((resp) => {
+        if (resp.ok) {
+          const copy = resp.clone();
+          caches.open(CACHE).then((c) => c.put(event.request, copy));
+        }
+        return resp;
+      })
+      .catch(() =>
+        caches.match(event.request).then(
+          (hit) => hit || (event.request.mode === "navigate" ? caches.match("/index.html") : undefined)
+        )
+      )
+  );
+});

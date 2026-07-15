@@ -1076,3 +1076,8 @@ async function disableRemindersClick() {
 
 // Initial paint (safe here: every const/function above has been evaluated).
 render();
+
+// Register the service worker (push notifications + PWA offline shell).
+if ("serviceWorker" in navigator) {
+  navigator.serviceWorker.register("/firebase-messaging-sw.js").catch(() => {});
+}

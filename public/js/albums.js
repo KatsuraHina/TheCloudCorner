@@ -628,3 +628,8 @@ function escapeHtml(s) {
     ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;", "'": "&#39;" }[c]));
 }
 function escapeAttr(s) { return escapeHtml(s); }
+
+// Register the service worker (push notifications + PWA offline shell).
+if ("serviceWorker" in navigator) {
+  navigator.serviceWorker.register("/firebase-messaging-sw.js").catch(() => {});
+}

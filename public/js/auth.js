@@ -125,3 +125,8 @@ $("google-btn").addEventListener("click", async () => {
     showError(friendly(err.code));
   }
 });
+
+// Register the service worker (push notifications + PWA offline shell).
+if ("serviceWorker" in navigator) {
+  navigator.serviceWorker.register("/firebase-messaging-sw.js").catch(() => {});
+}
